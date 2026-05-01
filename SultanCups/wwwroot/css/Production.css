@@ -1,0 +1,847 @@
+﻿/* =======================================================
+   Vigor Line - Production.css (النسخة النهائية المعتمدة)
+   1. تلوين السجلات متبادل (أبيض / رصاصي باهت جداً).
+   2. حواف دائرية ناعمة للهيدر (بدون زوايا حادة).
+   3. إزالة كافة الخطوط العمودية (مطابق لصفحة الموظفين).
+   4. إضافة خط فاصل Smooth بين السجلات.
+   ======================================================= */
+
+:root {
+    --pro-bg: #f3f6fb;
+    --pro-card-solid: #ffffff;
+    --pro-line: #e2e8f0;
+    --pro-text: #0f172a;
+    --pro-muted: #64748b;
+    --pro-primary: #2563eb;
+    --pro-shadow: 0 10px 30px rgba(2,6,23,0.08);
+}
+
+/* علامة موقوف بجانب الاسم */
+.pro-status-tag {
+    font-size: 10px;
+    background-color: #fee2e2; /* أحمر فاتح جداً خلفية */
+    color: #ef4444; /* أحمر هادئ للنص */
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+    font-weight: bold;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.is-invalid {
+    border: 1px solid #dc3545 !important;
+    background-color: #fff8f8;
+}
+
+.pro-error-text {
+    color: #dc3545;
+    font-size: 11px;
+    margin-top: 4px;
+    font-weight: bold;
+    padding-right: 5px;
+}
+
+/* ================= Page Layout ================= */
+.pro-page {
+    padding: 26px;
+    direction: rtl;
+    background: var(--pro-bg);
+    min-height: 100vh;
+}
+
+.pro-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    background: white;
+    padding: 15px 25px;
+    border-radius: 16px;
+    box-shadow: var(--pro-shadow);
+    border-right: 6px solid var(--pro-primary);
+}
+
+.pro-title {
+    font-size: 26px;
+    font-weight: 950;
+    color: var(--pro-text);
+    margin: 0;
+}
+
+/* ================= Table Styling ================= */
+.pro-card {
+    background: var(--pro-card-solid);
+    border-radius: 16px;
+    box-shadow: var(--pro-shadow);
+    overflow: hidden;
+    border: none !important;
+}
+
+.pro-table-wrap {
+    width: 100%;
+    overflow: auto;
+    padding: 0;
+    background: #ffffff;
+}
+
+.pro-table {
+    width: 100%;
+    /* ضروري لتفعيل الـ Border Radius في الزوايا */
+    border-collapse: separate !important;
+    border-spacing: 0;
+    min-width: 900px;
+    border: none !important;
+}
+
+    /* --- الهيدر والحواف الناعمة --- */
+    .pro-table thead th {
+        background: #f8fafc;
+        color: var(--pro-muted);
+        font-size: 13px;
+        font-weight: 950;
+        padding: 18px 20px;
+        text-align: right;
+        border: none !important;
+        border-bottom: 2px solid var(--pro-line) !important;
+    }
+
+    /* تنعيم الزوايا العلوية للهيدر */
+    .pro-table thead tr th:first-child {
+        border-top-right-radius: 16px;
+    }
+
+    .pro-table thead tr th:last-child {
+        border-top-left-radius: 16px;
+    }
+
+    /* --- تلوين السجلات والخط الفاصل Smooth --- */
+    .pro-table tbody tr {
+        border: none !important;
+        transition: background 0.2s ease;
+    }
+
+    /* 1. إزالة أي لون خلفية سابق من الخلايا لضمان ظهور لون الصف مع إضافة الخط الفاصل */
+    .pro-table tbody td {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 16px 20px;
+        font-weight: 800;
+        color: var(--pro-text);
+        vertical-align: middle;
+        /* هذا هو الخط الفاصل Smooth بين السجلات */
+        border-bottom: 1.5px solid #ffffff !important; /* درجة أغمق وأوضح */
+    }
+
+    /* إزالة الخط السفلـي من السجل الأخير تماماً */
+    .pro-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    /* 2. تلوين السجل الفردي (أبيض) */
+    .pro-table tbody tr:nth-child(odd) {
+        background-color: #ffffff !important;
+    }
+
+    /* 3. تلوين السجل الزوجي (رصاصي احترافي باهت جداً) */
+    .pro-table tbody tr:nth-child(even) {
+        background-color: #f7f9fc !important;
+    }
+
+    /* 4. تأثير التمرير (Hover) */
+    .pro-table tbody tr:hover {
+        background-color: #f1f5f9 !important;
+    }
+
+/* --- تخصيص البيانات --- */
+.pro-name {
+    color: #1e40af;
+    font-weight: 950 !important;
+}
+
+.pro-money {
+    font-family: monospace;
+    font-weight: 900;
+}
+
+.pro-total {
+    color: #16a34a;
+    background: #f0fdf4;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 950;
+    display: inline-block;
+}
+
+/* ================= Buttons & Actions ================= */
+.pro-actions-cell {
+    display: flex;
+    gap: 10px;
+}
+
+.pro-edit {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .pro-edit:hover {
+        background: #0ea5e9 !important;
+        color: #ffffff !important;
+    }
+
+.pro-del {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .pro-del:hover {
+        background: #ef4444 !important;
+        color: white !important;
+    }
+
+/* تنسيق حقل الملاحظات في سجلات الإنتاج */
+textarea.pro-input {
+    min-height: 100px;
+    resize: vertical; /* السماح بتغيير الحجم عمودياً فقط */
+    grid-column: span 2; /* التأكد من أخذ العرض الكامل في الشبكة */
+    line-height: 1.5;
+    padding: 12px;
+}
+
+
+
+.pro-btn-add, .pro-save {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 10px;
+    background: var(--pro-primary) !important;
+    color: #ffffff !important;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform .2s ease;
+}
+
+/* ================= Dialogs & Modals ================= */
+.pro-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+
+
+@keyframes proPop {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.pro-dialog-top-image {
+    width: 100%;
+    height: 110px;
+    background: #f1f5f9;
+    border-bottom: 2px solid var(--pro-primary);
+}
+
+    .pro-dialog-top-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.pro-dialog-body {
+    padding: 25px;
+}
+
+    .pro-dialog-body h3 {
+        text-align: center;
+        margin-bottom: 20px;
+        font-weight: 950;
+        color: var(--pro-text);
+    }
+
+.pro-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    font-weight: 700;
+    background: #fcfcfc;
+}
+
+    .pro-input:focus {
+        border-color: var(--pro-primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+.pro-cancel {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid var(--pro-line);
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    flex: 1;
+}
+
+/* نافذة الحذف */
+.pro-delete-icon {
+    width: 70px;
+    height: 70px;
+    background: #fee2e2;
+    color: #ef4444;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    margin: 0 auto 15px;
+    font-weight: 950;
+}
+/* =======================================================
+   تحديث أزرار مربع الحوار - Vigor Line
+   ======================================================= */
+
+.pro-dialog-actions {
+    display: flex;
+    gap: 15px; /* مسافة متناسقة بين الزرين */
+    margin-top: 25px;
+    width: 100%;
+}
+
+/* زر إلغاء - تم تكبيره ليتساوى مع زر الحذف */
+.pro-cancel {
+    flex: 1; /* يعطي الزر مساحة متساوية */
+    background: #64748b; /* اللون الرمادي الاحترافي الظاهر في الصورة */
+    color: white !important;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 950;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* زر حذف / حفظ */
+.pro-delete-confirm, .pro-save {
+    flex: 1; /* يعطي الزر مساحة متساوية */
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 950;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* حالة الحذف باللون الأحمر */
+.pro-delete-confirm {
+    background: #ef4444 !important;
+    color: white !important;
+}
+
+.pro-cancel:hover {
+    background: #475569;
+    transform: translateY(-2px);
+}
+
+/* حاوية التنبيه - نظام الكارت العائم */
+.prod-toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10001;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.prod-toast {
+    min-width: 320px;
+    padding: 16px 25px;
+    border-radius: 16px; /* زوايا ناعمة مثل الموظفين */
+    background: white;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    font-weight: 950;
+    font-size: 15px;
+    border: 1px solid #e2e8f0;
+    animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.cb-status-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.cb-status-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    background: white;
+    font-weight: 800;
+    cursor: pointer;
+    transition: .3s;
+    color: #64748b;
+}
+
+    .cb-status-btn.cb-active-selected {
+        border-color: #22c55e;
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    .cb-status-btn.cb-inactive-selected {
+        border-color: #ef4444;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    /* التلوين الجانبي الذكي */
+    .prod-toast.success {
+        border-right: 6px solid #22c55e; /* أخضر للنجاح */
+        color: #166534;
+    }
+
+    .prod-toast.error {
+        border-right: 6px solid #ef4444; /* أحمر للحذف */
+        color: #991b1b;
+    }
+
+.mg-time {
+    display: inline-block;
+    background: #fff7ed;
+    color: #c2410c;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-weight: 900;
+    margin-left: 6px;
+}
+
+.mg-date {
+    color: #16a34a;
+    font-weight: 800;
+}
+
+.text-center-delete {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #334155;
+    margin: 10px 0 22px;
+    line-height: 1.8;
+}
+
+.restore-text {
+    display: block !important;
+    width: 100% !important;
+    color: #f59e0b !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
+    margin-top: 6px !important;
+    margin-bottom: 8px !important;
+}
+
+.mg-readonly {
+    font-size: 14px;
+    margin-right: 10px;
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    vertical-align: middle;
+}
+
+.mg-date {
+    color: #16a34a;
+    font-weight: 800;
+}
+
+@keyframes fadeSoft {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes curtainDrop {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 220px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+}
+
+.pro-btn-link {
+    margin-top: 10px;
+    border: none;
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.pro-status-container {
+    margin-top: 14px;
+}
+
+.pro-status-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.pro-status-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    transition: .2s;
+    color: #64748b;
+}
+
+    .pro-status-btn.pro-active-selected {
+        border-color: #22c55e;
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    .pro-status-btn.pro-inactive-selected {
+        border-color: #ef4444;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+textarea.pro-input:focus {
+    border-color: var(--pro-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ===== Restore Money Image + Alerts ===== */
+
+.money-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+    .money-head img {
+        width: 42px;
+        height: 42px;
+        object-fit: cover;
+        border-radius: 10px;
+        position: relative;
+        top: -3px;
+    }
+
+    .money-head h3 {
+        margin: 0;
+        font-size: 32px;
+        font-weight: 900;
+    }
+
+.money-note {
+    text-align: center;
+    color: #64748b;
+    font-size: 17px;
+    font-weight: 700;
+    margin: 10px 0 18px;
+    line-height: 1.8;
+}
+
+.payment-error {
+    color: #dc2626;
+    font-size: 14px;
+    font-weight: 800;
+    margin-top: 8px;
+    text-align: right;
+}
+
+.pro-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+    .pro-fields-grid > div {
+        display: flex;
+        flex-direction: column;
+    }
+
+
+
+
+.pro-fields-grid label {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.pro-readonly-money {
+    background: #f8fafc;
+    color: #16a34a;
+    font-weight: 800;
+    cursor: not-allowed;
+}
+
+.diff-title {
+    text-align: center;
+    margin-bottom: 18px;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.diff-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+}
+
+    .diff-row span {
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .diff-row b {
+        font-size: 18px;
+    }
+
+.diff-out {
+    color: #dc2626;
+}
+
+.diff-in {
+    color: #16a34a;
+}
+
+.diff-note {
+    text-align: center;
+    margin: 16px 0 6px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.8;
+}
+
+.item-remove-wrap {
+    display: flex;
+    justify-content: flex-start; /* النهاية يسار */
+    align-items: center;
+}
+
+
+
+.pur-notes-box label {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.btn-delete-item {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #fee2e2;
+    color: #b91c1c;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+    .btn-delete-item:hover {
+        background: #fecaca;
+    }
+
+.invoice-summary {
+     position: sticky;
+    top: 20px;
+    background: #f8fafc;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0; /* بوردر خفيف */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    margin-top: 20px;
+}
+
+    .invoice-summary div {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        font-size: 14px;
+    }
+
+    .invoice-summary strong {
+        color: #2563eb;
+    }
+
+
+.pro-animate {
+    animation: fadeSoft 0.3s ease;
+}
+
+.pro-item-animate {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 12px;
+    align-items: center;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    padding-left: 40px;
+}
+
+.commission-note {
+    margin-right: 6px;
+    font-size: 12px;
+    color: #f59e0b; /* برتقالي هادئ */
+}
+
+
+.pro-dialog-body {
+    overflow-y: auto;
+}
+
+.pro-dialog-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+}
+
+.totals-box {
+    margin-top: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0; /* 🔥 بوردر خفيف */
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.pro-total {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.commission-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.commission-value {
+    font-weight: 600;
+    color: #2563eb; /* نفس لون الأرقام */
+}
+
+.commission-note {
+    font-size: 12px;
+    color: #f59e0b;
+}
+
+/* ===== FINAL DIALOG ===== */
+.pro-dialog-box {
+    background: #fff;
+    border-radius: 24px;
+    width: 80%; /* 🔥 هنا التعديل */
+    max-width: 1200px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}

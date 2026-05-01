@@ -1,0 +1,242 @@
+﻿﻿
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@using System.Timers
+@inject IJSRuntime JS
+@inject SultanCups.Services.ToastService ToastService
+@using SultanCups.Components
+@using SultanCups.Components.Pages
+@inject SultanCups.Services.UserSession Session
+
+<div class="app-shell @(IsSidebarCollapsed ? "sidebar-collapsed" : "")">
+
+    <aside class="app-sidebar">
+        <div class="sidebar-head">
+            <div class="sidebar-brand">نظام الحداثة</div>
+
+            <button type="button"
+                    class="sidebar-toggle"
+                    @onclick="ToggleSidebar"
+                    title="إخفاء/إظهار القائمة">
+                ☰
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent" @onclick='@(() => Go("/Stats"))'>
+                    لوحة التحكم (الرئيسية)
+                </button>
+            </div>
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent @(OpenKey == "buying" ? "active" : "")" @onclick='@(() => Toggle("buying"))'>
+                    المشتريات والتوريد
+                    <span class="chev">@(OpenKey == "buying" ? "▾" : "▸")</span>
+                </button>
+                <div class="nav-children @(OpenKey == "buying" ? "open" : "")">
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Suppliers"))'>الموردين</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Raw"))'>المواد الخام</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Purchases"))'>المشتريات</button>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent @(OpenKey == "prod" ? "active" : "")" @onclick='@(() => Toggle("prod"))'>
+                    التصنيع والإنتاج
+                    <span class="chev">@(OpenKey == "prod" ? "▾" : "▸")</span>
+                </button>
+                <div class="nav-children @(OpenKey == "prod" ? "open" : "")">
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Products"))'>أصناف المنتجات</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Production"))'>سجل الإنتاج</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/stock"))'>المخزن</button>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent @(OpenKey == "sales" ? "active" : "")" @onclick='@(() => Toggle("sales"))'>
+                    المبيعات والعملاء
+                    <span class="chev">@(OpenKey == "sales" ? "▾" : "▸")</span>
+                </button>
+                <div class="nav-children @(OpenKey == "sales" ? "open" : "")">
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Orders"))'>الفواتير</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/sales-payments"))'>المبيعات</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/debts"))'>ديون الفواتير</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/returns"))'>المرجوعات</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/marketers"))'>المسوقين</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/customers"))'>الزبائن</button>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent @(OpenKey == "finance" ? "active" : "")" @onclick='@(() => Toggle("finance"))'>
+                    المالية والخزينة
+                    <span class="chev">@(OpenKey == "finance" ? "▾" : "▸")</span>
+                </button>
+                <div class="nav-children @(OpenKey == "finance" ? "open" : "")">
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/CashBoxes"))'>إدارة الخزنات</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Salaries"))'>رواتب الموظفين</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Loans"))'>سلف الموظفين</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/OtherPurchases"))'>مصاريف أخرى</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/FinancialEvents"))'>الحركات المالية</button>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent @(OpenKey == "hr" ? "active" : "")" @onclick='@(() => Toggle("hr"))'>
+                    الموارد البشرية
+                    <span class="chev">@(OpenKey == "hr" ? "▾" : "▸")</span>
+                </button>
+                <div class="nav-children @(OpenKey == "hr" ? "open" : "")">
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Employees"))'>قائمة الموظفين</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/ManagementEvents"))'>الأحداث الإدارية</button>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <button type="button" class="nav-parent @(OpenKey == "admin" ? "active" : "")" @onclick='@(() => Toggle("admin"))'>
+                    الإدارة والنظام
+                    <span class="chev">@(OpenKey == "admin" ? "▾" : "▸")</span>
+                </button>
+                <div class="nav-children @(OpenKey == "admin" ? "open" : "")">
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Admins"))'>المسؤولين</button>
+                    <button type="button" class="nav-child" @onclick='@(() => Go("/Settings"))'>الإعدادات</button>
+                   
+                </div>
+            </div>
+
+            <div class="nav-sep"></div>
+
+            <button type="button" class="nav-logout" @onclick="ManualLogout">
+                تسجيل الخروج
+            </button>
+
+        </nav>
+    </aside>
+
+    <div class="app-main">
+        <div class="app-card">
+            <header class="app-topbar">
+
+                <div class="top-user">
+                    <div class="user-info">
+                        <span class="user-name greet-user">
+                            <span class="greet-text">@Greeting</span>
+                            <span class="greet-name">@Session.FullName</span>
+                        </span>
+                    </div>
+                </div>
+
+   <div class="topbar-center">
+    <span class="brand-text">مصنع السلطان للأكواب الورقية</span>
+</div>
+
+                <div class="top-datetime">
+                    <div class="time-display">@CurrentTime</div>
+                    <div class="date-display">@CurrentDate</div>
+                </div>
+
+            </header>
+            
+           <ToastContainer />
+
+            <main class="app-content">
+                @Body
+            </main>
+
+        </div>
+    </div>
+
+</div>
+
+@code {
+    string? OpenKey = "null";
+
+    bool IsSidebarCollapsed = false;
+
+    string CurrentTime = "";
+    string CurrentDate = "";
+
+    string Greeting = "";
+
+    private Timer? _timer;
+
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsLoggedIn)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        UpdateTime(null, null);
+
+        _timer = new Timer(1000);
+        _timer.Elapsed += UpdateTime;
+        _timer.AutoReset = true;
+        _timer.Enabled = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // تشغيل مراقب السكون بمجرد تحميل الواجهة
+            var linter = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initIdleTimer", linter);
+        }
+    }
+
+    // للدخول التلقائي (من السكربت) - نرسل السبب
+    [JSInvokable]
+    public void Logout()
+    {
+        Session.Logout();
+        Nav.NavigateTo("/?reason=idle");
+    }
+
+
+    // للخروج اليدوي (من الزر) - نذهب للرئيسية مباشرة بدون سبب
+    void ManualLogout()
+    {
+        Session.Logout();
+        Nav.NavigateTo("/");
+    }
+
+    private void UpdateTime(object? sender, ElapsedEventArgs? e)
+    {
+        var now = DateTime.Now;
+
+        Greeting = now.Hour < 12 ? "صباح الخير" : "مساء الخير";
+        CurrentTime = now.ToString("hh:mm:ss tt"); // تنسيق 12 ساعة مع ثواني
+        CurrentDate = now.ToString("dddd, dd MMMM yyyy"); // يوم، رقم، شهر، سنة
+        
+        // إخبار بليروز أن البيانات تغيرت ليقوم بتحديث الواجهة
+        InvokeAsync(StateHasChanged);
+    }
+
+    // تنظيف المؤقت عند إغلاق الصفحة لمنع استهلاك الذاكرة
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+
+
+    void ToggleSidebar()
+    {
+        IsSidebarCollapsed = !IsSidebarCollapsed;
+    }
+
+    void Toggle(string key)
+    {
+        OpenKey = (OpenKey == key) ? null : key;
+    }
+
+    void Go(string url)
+    {
+        Nav.NavigateTo(url);
+    }
+
+}

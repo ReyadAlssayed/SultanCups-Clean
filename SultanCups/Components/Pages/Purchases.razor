@@ -1,0 +1,927 @@
+﻿﻿
+@page "/Purchases"
+@layout Layout.MainLayout
+@using SultanCups.Models
+@using SultanCups.Services
+@inject NavigationManager Nav
+@inject FinanceService FinanceService
+@inject InventoryService InventoryService
+@inject ToastService ToastService
+@inject SultanCups.Services.UserSession Session
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="pro-page">
+
+    <div class="pro-topbar">
+        <button class="pro-btn-add" @onclick="OpenAddDialog">إضافة فاتورة شراء</button>
+
+        <h2 class="pro-title">سجل المشتريات الخام</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+
+    <div class="pro-search-bar">
+
+        <input class="mk-search-input"
+               placeholder="بحث برقم الفاتورة"
+               @bind="InvoiceSearch"
+               @bind:event="oninput" />
+
+        <select class="pro-filter-select" @bind="TypeFilter">
+            <option value="all">الكل</option>
+            <option value="local">داخلي</option>
+            <option value="import">خارجي</option>
+        </select>
+
+        <select class="pro-filter-select" @bind="YearFilter">
+            <option value="0">كل السنوات</option>
+            @foreach (var y in Years)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+
+        <select class="pro-filter-select" @bind="MonthFilter">
+            <option value="0">كل الشهور</option>
+            @for (int i = 1; i <= 12; i++)
+            {
+                <option value="@i">@i</option>
+            }
+        </select>
+
+    </div>
+
+
+    <div class="pro-card">
+
+
+        <div class="pro-table-wrap">
+
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>المادة</th>
+                        <th>المورد</th>
+                        <th>النوع</th>
+                        <th>الكمية</th>
+                        <th>سعر الوحدة</th>
+                        <th>جمرك</th>
+                        <th>شحن</th>
+                        <th>نقل</th>
+                        <th>الإجمالي</th>
+                        <th>الخزنة</th>
+                        <th>التاريخ</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (List == null)
+                    {
+                        <tr>
+                            <td colspan="12">جاري التحميل...</td>
+                        </tr>
+                    }
+                    else if (List.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="12" class="st-empty-text">
+                                <div class="empty-state">
+                                    <img src="images/Empty.jpg" class="empty-img" />
+                                    <span>لا توجد بيانات</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var p in FilteredPurchases)
+                        {
+                            <tr>
+                                <td class="pro-name">@GetMaterialName(p.raw_material_id)</td>
+                                <td>@GetSupplierName(p.supplier_id)</td>
+                                <td>
+                                    @(p.purchase_type == "import" ? "خارجي" : "داخلي")
+                                </td>
+                                <td>@p.quantity</td>
+                                <td>@p.unit_price.ToString("0.00")</td>
+                                <td>@p.customs_cost.ToString("0.00")</td>
+                                <td>@p.shipping_cost.ToString("0.00")</td>
+                                <td>@p.local_transport_cost.ToString("0.00")</td>
+                                <td>
+                                    <span class="pro-total">
+                                        @GetTotal(p).ToString("0.00") د.ل
+                                    </span>
+                                </td>
+                                <td>@GetCashBoxName(p.cash_box_id)</td>
+                                <td>@p.purchase_date.ToString("yyyy-MM-dd")</td>
+                                <td class="pro-actions-cell">
+                                    <button class="pro-view" @onclick="() => OpenDetailsDialog(p)">
+                                        تفاصيل
+                                    </button>
+                                    <button class="pro-edit" @onclick="() => OpenEditDialog(p)">تعديل</button>
+                                    <button class="pro-del" @onclick="() => OpenDeleteDialog(p)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+@if (ShowAddDialog || ShowEditDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <div class="money-head">
+                    <h3>@(ShowAddDialog ? "إضافة مشتريات" : "تعديل مشتريات")</h3>
+                    <img src="images/Money.jpg" />
+                </div>
+
+                <div class="purchase-mode-box">
+                    <label>نوع الشراء</label>
+
+                    <select class="pro-input" @bind="PurchaseMode">
+                        <option value="local">شراء داخلي</option>
+                        <option value="import">استيراد خارجي</option>
+                    </select>
+                </div>
+
+                <div class="pro-fields-grid">
+
+                    <div>
+                        <label>المادة الخام</label>
+                        <select class="pro-input @(RawError == "" ? "" : "is-invalid")"
+                                value="@Form.raw_material_id"
+                                @onchange="FillMaterialPrice">
+                            <option value="0">اختر المادة</option>
+                            @foreach (var r in RawMaterials)
+                            {
+                                <option value="@r.raw_material_id">@r.name</option>
+                            }
+                        </select>
+                        @if (RawError != "")
+                        {
+                            <div class="pro-error-text">@RawError</div>
+                        }
+                    </div>
+
+                    <div>
+                            <label>المورد</label>
+
+                            <select class="pro-input @(SupplierError == "" ? "" : "is-invalid")"
+                                    @bind="Form.supplier_id">
+                                <option value="0">اختر المورد</option>
+
+                                @foreach (var s in Suppliers)
+                                {
+                                    <option value="@s.supplier_id">@s.name</option>
+                                }
+                            </select>
+
+                            @if (SupplierError != "")
+                            {
+                                <div class="pro-error-text">@SupplierError</div>
+                            }
+                        </div>
+                    
+
+                    <div>
+                        <label>الكمية</label>
+                        <input type="number"
+                               min="1"
+                               class="pro-input @(QtyError == "" ? "" : "is-invalid")"
+                               @bind-value="Form.quantity"
+                               @bind-value:event="oninput" />
+                        @if (QtyError != "")
+                        {
+                            <div class="pro-error-text">@QtyError</div>
+                        }
+                    </div>
+
+                    <div>
+                        <label>سعر الوحدة</label>
+                        <input type="number"
+                               step="0.01"
+                               class="pro-input @(PriceError == "" ? "" : "is-invalid")"
+                               @bind-value="Form.unit_price"
+                               @bind-value:event="oninput" />
+                        @if (PriceError != "")
+                        {
+                            <div class="pro-error-text">@PriceError</div>
+                        }
+                    </div>
+
+                    <div class="smooth-field @(PurchaseMode == "import" ? "" : "hide-field")">
+                            <label>الجمرك</label>
+
+                            <input type="number"
+                                   step="0.01"
+                                   class="pro-input"
+                                   @bind-value="Form.customs_cost"
+                                   @bind-value:event="oninput" />
+                        </div>
+                    
+
+                    <div class="smooth-field @(PurchaseMode == "import" ? "" : "hide-field")">
+                            <label>الشحن الخارجي</label>
+
+                            <input type="number"
+                                   step="0.01"
+                                   class="pro-input"
+                                   @bind-value="Form.shipping_cost"
+                                   @bind-value:event="oninput" />
+                        </div>
+                    
+
+                    <div>
+                        <label>النقل الداخلي</label>
+                        <input type="number"
+                               step="0.01"
+                               class="pro-input"
+                               @bind-value="Form.local_transport_cost"
+                               @bind-value:event="oninput" />
+                    </div>
+
+                    <div>
+                        <label>المبلغ الكلي</label>
+                        <input class="pro-input pro-readonly-money"
+                               value="@GetTotal(Form).ToString("0.00")"
+                               readonly />
+                    </div>
+
+                    <div>
+                        <label>الخزنة</label>
+                        <select class="pro-input @(CashError == "" ? "" : "is-invalid")"
+                                @bind="Form.cash_box_id">
+                            <option value="0">اختر الخزنة</option>
+                            @foreach (var c in CashBoxes)
+                            {
+                                <option value="@c.cash_box_id">@c.name</option>
+                            }
+                        </select>
+                        @if (CashError != "")
+                        {
+                            <div class="pro-error-text">@CashError</div>
+                        }
+                    </div>
+
+                    <div>
+                        <label>تاريخ الشراء</label>
+                        <input type="date"
+                               class="pro-input"
+                               @bind="Form.purchase_date" />
+                    </div>
+
+                    <div class="smooth-field @(PurchaseMode == "import" ? "" : "hide-field")">
+                            <label>تاريخ الوصول</label>
+
+                            <input type="date"
+                                   class="pro-input"
+                                   @bind="Form.arrival_date" />
+                        </div>
+                    
+
+
+                    <div class="pur-notes-box">
+                        <label>ملاحظات</label>
+                        <textarea maxlength="200"
+                                  class="pro-input pur-notes-input"
+                                  @bind="Form.notes"></textarea>
+                    </div>
+
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="Save">حفظ</button>
+                    <button class="pro-cancel" @onclick="Close">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box inv-delete-dialog-box">
+
+            <div class="pro-dialog-top-image inv-delete-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body inv-delete-dialog-body">
+
+                <div class="inv-delete-icon-wrap">
+                    <div class="inv-delete-icon">!</div>
+                </div>
+
+                <div class="money-head">
+                    <h3 class="inv-delete-title">تأكيد حذف فاتورة الشراء</h3>
+                    <img src="images/Money.jpg" />
+                </div>
+
+                <p class="inv-delete-text">
+                    هل تريد حذف سجل الشراء؟
+                    <br /><br />
+
+                    <span style="color:#16a34a;font-weight:800;">
+                        سيتم إرجاع مبلغ
+                        @GetTotal(Form).ToString("0.00") د.ل
+                    </span>
+
+                    <br />
+
+                    <span style="color:#64748b;font-size:13px;">
+                        إلى خزنة @GetCashBoxName(Form.cash_box_id)
+                    </span>
+                </p>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-delete-confirm" @onclick="ConfirmDelete">
+                        حذف الآن
+                    </button>
+
+                    <button class="pro-cancel" @onclick="Close">
+                        إلغاء
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDiffDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+            <div class="pro-dialog-body">
+
+                <h3 class="diff-title">تأكيد التعديل المالي</h3>
+
+                <div class="diff-row">
+                    <span>الإجمالي السابق</span>
+                    <b>@OldTotal.ToString("0.00") د.ل</b>
+                </div>
+
+                <div class="diff-row">
+                    <span>الإجمالي الجديد</span>
+                    <b>@NewTotal.ToString("0.00") د.ل</b>
+                </div>
+
+                <div class="diff-row">
+                    <span>الفرق</span>
+
+                    <b class="@(DiffTotal > 0 ? "diff-out" : "diff-in")">
+                        @Math.Abs(DiffTotal).ToString("0.00") د.ل
+                    </b>
+                </div>
+
+                <p class="diff-note">
+                    @(DiffTotal > 0
+                        ? "سيتم خصم هذا المبلغ من الخزنة المختارة"
+                        : "سيتم إرجاع هذا المبلغ إلى الخزنة المختارة")
+                </p>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="ConfirmEdit">متابعة</button>
+                    <button class="pro-cancel" @onclick="Close">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+
+@if (ShowDetailsDialog)
+{
+    var raw = GetRawInfo(DetailsItem.raw_material_id);
+
+    <div class="pro-dialog-overlay">
+        <div class="sal-dialog-box">
+            <div class="sal-dialog-top"></div>
+            <div class="sal-dialog-body">
+
+                <h3>
+                    معاينة فاتورة الشراء
+                    <div style="height:10px;"></div>
+                    <span style="font-size:14px;color:#64748b;">
+                        رقم الفاتورة PUR-@DetailsItem.purchase_id.ToString("D4")
+                    </span>
+                </h3>
+
+                <div class="details-list">
+
+                    <div class="row head-row">
+                        <span>بيانات المادة الحالية</span>
+                        <span></span>
+                    </div>
+
+                    <div class="row">
+                        <span>المادة</span>
+                        <span>@raw?.name</span>
+                    </div>
+
+                    <div class="row head-row line-top">
+                        <span>بيانات الشراء</span>
+                        <span></span>
+                    </div>
+
+                    <div class="row">
+                        <span>المورد</span>
+                        <span>@GetSupplierName(DetailsItem.supplier_id)</span>
+                    </div>
+
+                    <div class="row">
+                        <span>النوع</span>
+                        <span>@(DetailsItem.purchase_type == "import" ? "خارجي" : "داخلي")</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الكمية</span>
+                        <span>@DetailsItem.quantity</span>
+                    </div>
+
+                    <div class="row">
+                        <span>سعر الشراء</span>
+                        <span>@DetailsItem.unit_price.ToString("0.00") د.ل</span>
+                    </div>
+
+                    @if (DetailsItem.purchase_type == "import")
+                    {
+                        <div class="row">
+                            <span>الجمرك</span>
+                            <span>@DetailsItem.customs_cost.ToString("0.00") د.ل</span>
+                        </div>
+
+                        <div class="row">
+                            <span>الشحن</span>
+                            <span>@DetailsItem.shipping_cost.ToString("0.00") د.ل</span>
+                        </div>
+                    }
+
+                    <div class="row">
+                        <span>النقل الداخلي</span>
+                        <span>@DetailsItem.local_transport_cost.ToString("0.00") د.ل</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الخزنة</span>
+                        <span>@GetCashBoxName(DetailsItem.cash_box_id)</span>
+                    </div>
+
+                    <div class="row">
+                        <span>التاريخ</span>
+                        <span>@DetailsItem.purchase_date.ToString("yyyy-MM-dd")</span>
+                    </div>
+
+                    <div class="row total-row">
+                        <span>الإجمالي</span>
+                        <span>@GetTotal(DetailsItem).ToString("0.00") د.ل</span>
+                    </div>
+
+                </div>
+
+                <div class="pro-dialog-actions">
+
+                    <button class="btn-pdf-save" onclick="printPurchaseCard()">
+                        حفظ PDF
+                    </button>
+
+                    <button class="btn-cancel" @onclick="Close">
+                        إغلاق
+                    </button>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+
+    List<Purchase>? List;
+    List<Supplier> Suppliers = new();
+    List<RawMaterial> RawMaterials = new();
+    List<CashBox> CashBoxes = new();
+
+    Purchase Form = new();
+
+    bool ShowAddDialog;
+    bool ShowEditDialog;
+    bool ShowDeleteDialog;
+
+    bool IsExporting = false;
+
+    bool ShowDetailsDialog;
+    Purchase DetailsItem = new();
+
+    string RawError = "";
+    string SupplierError = "";
+    string QtyError = "";
+    string PriceError = "";
+    string CashError = "";
+
+    string InvoiceSearch = "";
+
+    string TypeFilter = "all";
+    int YearFilter = 0;
+    int MonthFilter = 0;
+
+    List<int> Years =>
+        (List ?? new())
+        .Select(x => x.purchase_date.Year)
+        .Distinct()
+        .OrderByDescending(x => x)
+        .ToList();
+
+    bool ShowDiffDialog;
+
+    decimal OldTotal;
+    decimal NewTotal;
+    decimal DiffTotal;
+
+    int adminId => Session.AdminId;
+
+    string PurchaseMode = "local";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsLoggedIn)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        List = await FinanceService.GetPurchases();
+        Suppliers = await InventoryService.GetActiveSuppliers();
+        RawMaterials = await InventoryService.GetActiveRawMaterials();
+        CashBoxes = await FinanceService.GetActiveCashBoxes();
+    }
+
+    void OpenAddDialog()
+    {
+        PurchaseMode = "local";
+
+        Form = new Purchase
+        {
+            quantity = 1,
+            purchase_date = DateTime.UtcNow,
+            customs_cost = 0,
+            shipping_cost = 0,
+            local_transport_cost = 0
+        };
+
+
+
+        ResetErrors();
+        ShowAddDialog = true;
+    }
+
+    IEnumerable<Purchase> FilteredPurchases =>
+  (List ?? new List<Purchase>())
+  .Where(p =>
+      (TypeFilter == "all" ||
+       p.purchase_type == TypeFilter)
+      &&
+      (YearFilter == 0 ||
+       p.purchase_date.Year == YearFilter)
+      &&
+      (MonthFilter == 0 ||
+       p.purchase_date.Month == MonthFilter)
+      &&
+      (string.IsNullOrWhiteSpace(InvoiceSearch)
+       || p.purchase_id.ToString().Contains(InvoiceSearch)
+       || ("PUR-" + p.purchase_id.ToString("D4"))
+          .Contains(InvoiceSearch.ToUpper()))
+  );
+    string GetCashBoxName(int? id)
+    {
+        return CashBoxes.FirstOrDefault(x => x.cash_box_id == id)?.name ?? "-";
+    }
+
+    void OpenEditDialog(Purchase p)
+    {
+        Form = new Purchase
+        {
+            purchase_id = p.purchase_id,
+            raw_material_id = p.raw_material_id,
+            supplier_id = p.supplier_id,
+            quantity = p.quantity,
+            unit_price = p.unit_price,
+            customs_cost = p.customs_cost,
+            shipping_cost = p.shipping_cost,
+            local_transport_cost = p.local_transport_cost,
+            purchase_date = p.purchase_date,
+            arrival_date = p.arrival_date,
+            cash_box_id = p.cash_box_id,
+            notes = p.notes,
+            purchase_type = p.purchase_type
+};
+
+        PurchaseMode = p.purchase_type ?? "local";
+
+ResetErrors();
+ShowEditDialog = true;
+OldTotal = GetTotal(p);
+    }
+
+    void OpenDeleteDialog(Purchase p)
+    {
+        Form = p;
+        ShowDeleteDialog = true;
+    }
+
+    void OpenDetailsDialog(Purchase p)
+    {
+        DetailsItem = p;
+        ShowDetailsDialog = true;
+    }
+
+    RawMaterial? GetRawInfo(int id)
+    {
+        return RawMaterials.FirstOrDefault(x => x.raw_material_id == id);
+    }
+
+    async Task ConfirmEdit()
+    {
+        Form.purchase_type = PurchaseMode;
+
+        var ok = await FinanceService.UpdatePurchase(Form, adminId);
+
+        if (!ok)
+        {
+            ToastService.ShowToast("رصيد الخزنة غير كافي", "error");
+            ShowDiffDialog = false;
+            ShowEditDialog = true;
+            return;
+        }
+
+        await LoadData();
+
+        Close();
+
+        ToastService.ShowToast("تم التعديل بنجاح", "success");
+    }
+
+    void FillMaterialPrice(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            Form.raw_material_id = id;
+
+            var item = RawMaterials.FirstOrDefault(x => x.raw_material_id == id);
+
+            if (item != null)
+                Form.unit_price = item.unit_cost;
+        }
+    }
+
+    async Task Save()
+    {
+        ResetErrors();
+
+        if (Form.raw_material_id <= 0)
+        {
+            RawError = "اختر المادة";
+            return;
+        }
+
+        if (Form.supplier_id == null || Form.supplier_id <= 0)
+        {
+            SupplierError = "اختر المورد";
+            return;
+        }
+
+        if (Form.quantity <= 0)
+        {
+            QtyError = "الكمية أكبر من صفر";
+            return;
+        }
+
+        if (Form.unit_price <= 0)
+        {
+            PriceError = "يجب أن يكون السعر أكبر من 0";
+            return;
+        }
+
+        if (Form.customs_cost < 0)
+        {
+            ToastService.ShowToast("الجمرك لا يمكن أن يكون أقل من 0", "error");
+            return;
+        }
+
+        if (Form.shipping_cost < 0 || Form.local_transport_cost < 0)
+        {
+            ToastService.ShowToast("النقل لا يمكن أن يكون أقل من 0", "error");
+            return;
+        }
+
+        if (Form.cash_box_id == null || Form.cash_box_id <= 0)
+        {
+            CashError = "اختر الخزنة";
+            return;
+        }
+
+        if (PurchaseMode == "local")
+        {
+            Form.customs_cost = 0;
+            Form.shipping_cost = 0;
+            Form.arrival_date = null;
+        }
+
+        Form.purchase_type = PurchaseMode;
+
+        try
+        {
+            if (ShowAddDialog)
+            {
+                await FinanceService.AddPurchase(Form, adminId);
+                ToastService.ShowToast("تمت الإضافة بنجاح", "success");
+            }
+            else
+            {
+                NewTotal = GetTotal(Form);
+                DiffTotal = NewTotal - OldTotal;
+
+                if (DiffTotal == 0)
+                {
+                    await FinanceService.UpdatePurchase(Form, adminId);
+                    await LoadData();
+                    Close();
+                    ToastService.ShowToast("تم التعديل بنجاح", "success");
+                    return;
+                }
+
+                ShowEditDialog = false;
+                ShowDiffDialog = true;
+                return;
+            }
+
+            await LoadData();
+            Close();
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.InnerException?.Message ?? ex.Message;
+            ToastService.ShowToast(msg, "error");
+        }
+    }
+
+    async Task ConfirmDelete()
+    {
+        await FinanceService.DeletePurchase(Form.purchase_id, adminId);
+        await LoadData();
+        Close();
+
+        ToastService.ShowToast("تم الحذف بنجاح", "success");
+    }
+
+    void Close()
+    {
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+        ShowDiffDialog = false;
+        Form = new Purchase();
+        ResetErrors();
+        ShowDetailsDialog = false;
+        DetailsItem = new Purchase();
+    }
+
+    void ResetErrors()
+    {
+        RawError = "";
+        SupplierError = "";
+        QtyError = "";
+        PriceError = "";
+        CashError = "";
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting)
+            return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(600);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("المشتريات");
+
+            ws.Cell(1, 1).Value = "المادة";
+            ws.Cell(1, 2).Value = "المورد";
+            ws.Cell(1, 3).Value = "النوع";
+            ws.Cell(1, 4).Value = "الكمية";
+            ws.Cell(1, 5).Value = "سعر الوحدة";
+            ws.Cell(1, 6).Value = "جمرك";
+            ws.Cell(1, 7).Value = "شحن";
+            ws.Cell(1, 8).Value = "نقل";
+            ws.Cell(1, 9).Value = "الإجمالي";
+            ws.Cell(1, 10).Value = "الخزنة";
+            ws.Cell(1, 11).Value = "التاريخ";
+            ws.Cell(1, 12).Value = "ملاحظات";
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+            int row = 2;
+
+            foreach (var p in List ?? new())
+            {
+                ws.Cell(row, 1).Value = GetMaterialName(p.raw_material_id);
+                ws.Cell(row, 2).Value = GetSupplierName(p.supplier_id);
+                ws.Cell(row, 3).Value = p.purchase_type == "import" ? "خارجي" : "داخلي";
+                ws.Cell(row, 4).Value = p.quantity;
+                ws.Cell(row, 5).Value = p.unit_price;
+                ws.Cell(row, 6).Value = p.customs_cost;
+                ws.Cell(row, 7).Value = p.shipping_cost;
+                ws.Cell(row, 8).Value = p.local_transport_cost;
+                ws.Cell(row, 9).Value = GetTotal(p);
+                ws.Cell(row, 10).Value = GetCashBoxName(p.cash_box_id);
+                ws.Cell(row, 11).Value = p.purchase_date.ToString("yyyy-MM-dd");
+                ws.Cell(row, 12).Value = p.notes;
+                row++;
+            }
+
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Purchases_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    decimal GetTotal(Purchase p)
+    {
+        return (p.quantity * p.unit_price)
+            + p.customs_cost
+            + p.shipping_cost
+            + p.local_transport_cost;
+    }
+
+    string GetSupplierName(int? id)
+    {
+        if (id == null)
+            return "-";
+
+        return Suppliers.FirstOrDefault(x => x.supplier_id == id)?.name ?? "-";
+    }
+
+    string GetMaterialName(int id)
+    {
+        return RawMaterials.FirstOrDefault(x => x.raw_material_id == id)?.name ?? "-";
+    }
+}

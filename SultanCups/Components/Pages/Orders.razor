@@ -1,0 +1,258 @@
+﻿@page "/orders"
+@layout Layout.MainLayout
+
+@using SultanCups.Models
+@using SultanCups.Services
+
+@inject SultanCups.Services.UserSession Session
+@inject FinanceService2 FinanceService
+@inject InventoryService InventoryService
+@inject SalesService SalesService
+@inject ToastService ToastService
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components
+
+<div class="pro-page">
+
+    <div class="pro-topbar">
+        <button class="pro-btn-add" @onclick='() => Nav.NavigateTo("/orders/add")'>
+            إضافة فاتورة
+        </button>
+        <h2 class="pro-title">الفواتير</h2>
+        <div></div>
+    </div>
+
+    <div class="pro-card">
+        <div class="pro-table-wrap">
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>رقم</th>
+                        <th>النوع</th>
+                        <th>الاسم</th>
+                        <th>عدد الأصناف</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (OrdersList == null)
+                    {
+                        <tr>
+                            <td colspan="10" class="st-empty-text">
+                                <span>جاري التحميل...</span>
+                            </td>
+                        </tr>
+                    }
+                    else if (!OrdersList.Any())
+                    {
+                        <tr>
+                            <td colspan="10" class="st-empty-text">
+                                <div class="empty-state">
+                                    <img src="images/Empty.jpg" class="empty-img" />
+                                    <span>لا توجد فواتير</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var o in OrdersList)
+{
+    <tr class="@(o.order_id == HighlightId ? "new-row" : "")">
+
+        <td>@o.order_id</td>
+
+        <td>@(o.person_type == "customer" ? "زبون" : "مسوق")</td>
+
+        <td>@o.person_name</td>
+
+        <td>@o.items_count</td>
+
+                                <td>
+                                    @(o.paid_amount == 0
+    ? "غير مدفوع"
+    : o.paid_amount < o.net_total
+        ? "جزئي"
+        : "خالص")
+                                    
+        </td>
+
+        <td>@o.order_date.ToString("yyyy-MM-dd")</td>
+
+        <td>
+            <button class="btn-info" @onclick="() => OpenDetails(o)">تفاصيل</button>
+
+                                    <button class="btn-edit"
+                                            @onclick='() => Nav.NavigateTo($"/orders/add?id={o.order_id}")'>
+                                        تعديل
+                                    </button>
+
+            <button class="btn-delete">تعطيل</button>
+                                    <button class="btn-print">طباعة</button>
+        </td>
+
+    </tr>
+}
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowDetails && SelectedOrder != null)
+{
+    <div class="sal-dialog-overlay">
+
+        <div class="sal-dialog-box">
+
+            <div class="sal-dialog-top"></div>
+
+            <div class="sal-dialog-body">
+
+                <h3>تفاصيل الفاتورة</h3>
+
+                <div class="details-list">
+
+                    <div class="row">
+                        <span>رقم الفاتورة</span>
+                        <span>@SelectedOrder.order_id</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الاسم</span>
+                        <span>@SelectedOrder.person_name</span>
+                    </div>
+
+                    <div class="row">
+                        <span>عدد الأصناف</span>
+                        <span>@SelectedOrder.items_count</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الإجمالي</span>
+                        <span>@Fmt(SelectedOrder.total)</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الخصم</span>
+                        <span>@Fmt(SelectedOrder.discount_total)</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الصافي</span>
+                        <span>@Fmt(SelectedOrder.net_total)</span>
+                    </div>
+
+                    <div class="row">
+                        <span>العمولة</span>
+                        <span>@Fmt(SelectedOrder.commission_total)</span>
+                    </div>
+
+                    <div class="row">
+                        <span>التاريخ</span>
+                        <span>@SelectedOrder.order_date.ToString("yyyy-MM-dd")</span>
+                    </div>
+
+                </div>
+
+                @if (SelectedItems.Any())
+                {
+                    <div style="margin-top:15px">
+
+                        <h4>الأصناف</h4>
+
+                        <table class="pro-table">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th>الكمية</th>
+                                    <th>السعر</th>
+                                    <th>الإجمالي</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (var item in SelectedItems)
+                                {
+                                    <tr>
+                                        <td>@item.product_id</td>
+                                        <td>@item.quantity</td>
+                                        <td>@Fmt(item.unit_price)</td>
+                                        <td>@Fmt(item.total)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                    </div>
+                }
+
+                <button class="btn-cancel" @onclick="CloseDetails">
+                    إغلاق
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+@code {
+
+    List<OrderView>? OrdersList;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "new")]
+    public string? newId { get; set; }
+
+    int HighlightId => int.TryParse(newId, out var id) ? id : 0;
+
+    int CurrentAdminId => Session.AdminId;
+    string Fmt(decimal v) => $"{v:0.00} د.ل";
+
+    OrderView? SelectedOrder;
+    bool ShowDetails = false;
+
+    List<OrderItem> SelectedItems = new();
+   
+    protected override async Task OnInitializedAsync()
+    {
+        OrdersList = await FinanceService.GetOrders();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(newId))
+        {
+            _ = ClearHighlight();
+        }
+    }
+
+    async Task ClearHighlight()
+    {
+        await Task.Delay(3000); // 3 ثواني
+        Nav.NavigateTo("/orders");
+    }
+   
+async Task OpenDetails(OrderView o)
+{
+    var order = await FinanceService.GetOrderById(o.order_id);
+
+    if (order == null) return;
+
+    SelectedOrder = o;
+    SelectedItems = order.Items;
+
+    ShowDetails = true;
+}
+
+    void CloseDetails()
+{
+    ShowDetails = false;
+    SelectedOrder = null;
+}
+}

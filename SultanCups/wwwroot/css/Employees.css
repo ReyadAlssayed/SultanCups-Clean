@@ -1,0 +1,554 @@
+﻿/* =======================================================
+   Vigor Line - Employees.css
+   التعديلات: مطابقة شكل الجدول لصفحة الإنتاج والمسؤولين
+   ======================================================= */
+
+:root {
+    --emp-bg: #f3f6fb;
+    --emp-card-solid: #ffffff;
+    --emp-line: #e2e8f0;
+    --emp-text: #0f172a;
+    --emp-muted: #64748b;
+    --emp-primary: #2563eb; /* Royal Blue */
+    --emp-shadow: 0 10px 30px rgba(2,6,23,0.08);
+}
+
+/* ================= Page Layout ================= */
+.emp-page {
+    padding: 26px;
+    direction: rtl;
+    background: var(--emp-bg);
+    min-height: 100vh; /* تم تعديله لضمان ظهور الخلفية */
+}
+
+.restore-text {
+    display: block !important;
+    width: 100% !important;
+    color: #f59e0b !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.4 !important;
+    margin: 0 0 8px 0 !important;
+    background: none !important;
+    text-align: center !important;
+}
+
+.restore-btn {
+    border: none;
+    background: #2563eb;
+    color: #fff;
+    min-width: 180px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all .28s ease;
+    box-shadow: 0 8px 18px rgba(37,99,235,.12);
+}
+
+    .restore-btn:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 22px rgba(37,99,235,.18);
+    }
+
+    .restore-btn:active {
+        transform: scale(.98);
+    }
+
+@keyframes restoreFade {
+    0% {
+        opacity: 0;
+        transform: translateY(-14px) scale(.96);
+        filter: blur(3px);
+    }
+
+    60% {
+        opacity: 1;
+        transform: translateY(2px) scale(1.01);
+        filter: blur(0);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+.emp-topbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    margin-bottom: 25px;
+    background: white;
+    padding: 15px 25px;
+    border-radius: 16px;
+    box-shadow: var(--emp-shadow);
+    border-right: 6px solid var(--emp-primary);
+}
+
+.emp-title-center {
+    text-align: center;
+    justify-self: center;
+}
+
+.emp-topbar .emp-add-btn {
+    justify-self: start;
+    width: auto;
+    min-width: 140px;
+}
+
+.emp-topbar .pro-btn-excel {
+    justify-self: end;
+}
+
+.emp-title-center {
+    font-size: 26px;
+    font-weight: 950;
+    color: var(--emp-text);
+    margin: 0;
+}
+
+/* ================= Table Styling (التعديل المطلوب هنا) ================= */
+.emp-card {
+    background: var(--emp-card-solid);
+    border-radius: 16px;
+    box-shadow: var(--emp-shadow);
+    overflow: hidden;
+    border: 1px solid var(--emp-line);
+}
+
+.emp-table-wrap {
+    width: 100%;
+    overflow: auto;
+}
+
+.emp-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px; /* زيادة العرض قليلاً لثبات المربع */
+}
+
+    .emp-table thead th {
+        background: #f8fafc; /* خلفية الرأس فاتحة وأنيقة */
+        color: var(--emp-muted);
+        font-size: 13px;
+        font-weight: 950;
+        padding: 18px 20px;
+        text-align: right;
+        border-bottom: 2px solid var(--emp-line);
+    }
+
+    .emp-table tbody tr {
+        border-bottom: 1px solid var(--emp-line);
+        transition: background 0.2s ease;
+    }
+
+        /* نظام الصفوف المتبادلة (نفس الإنتاج والمسؤولين) */
+        .emp-table tbody tr:nth-child(even) {
+            background: #f8fafc; /* صف رصاصي خفيف */
+        }
+
+        .emp-table tbody tr:nth-child(odd) {
+            background: #ffffff; /* صف أبيض */
+        }
+
+        .emp-table tbody tr:hover {
+            background: #f1f5f9; /* تمييز عند التمرير */
+        }
+
+    .emp-table tbody td {
+        padding: 16px 20px;
+        font-weight: 800;
+        color: var(--emp-text);
+        vertical-align: middle;
+    }
+
+/* تمييز البيانات داخل الجدول */
+.emp-name {
+    color: #1e40af;
+    font-weight: 950 !important;
+}
+
+.emp-phone {
+    font-family: monospace;
+    color: #475569;
+    font-weight: 700;
+}
+
+.emp-salary {
+    color: #059669;
+    font-weight: 950 !important;
+}
+
+/* ================= Actions ================= */
+.emp-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.emp-edit {
+    background: #e0f2fe; /* تغيير اللون ليكون أفتح وأرقى مطابقاً للإنتاج */
+    color: #0369a1;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .emp-edit:hover {
+        background: #0ea5e9;
+        color: white;
+    }
+
+.emp-delete {
+    background: #fee2e2; /* تغيير اللون للمطابقة */
+    color: #dc2626;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .emp-delete:hover {
+        background: #ef4444;
+        color: white;
+    }
+
+/* ================= Badges ================= */
+.emp-badge {
+    padding: 6px 14px;
+    border-radius: 8px; /* حواف أكثر حدة لتناسب النظام الجديد */
+    font-size: 12px;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+}
+
+.emp-on {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.emp-off {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ================= الباقي يبقى كما هو (Dialogs, Toasts, etc.) ================= */
+.emp-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+}
+
+.emp-dialog-box {
+    background: #fff;
+    border-radius: 24px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+    animation: empPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes empPop {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ... (بقية الكود الخاص بالمدخلات والتنبيهات والبحث كما هو دون أي تغيير في البنية) ... */
+
+.emp-dialog-top-image {
+    width: 100%;
+    height: 120px;
+    background: #f1f5f9;
+}
+
+    .emp-dialog-top-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.emp-dialog-body {
+    padding: 25px;
+}
+
+.emp-field {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.emp-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.emp-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #94a3b8;
+    margin-right: 5px;
+    text-transform: uppercase;
+}
+
+.emp-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    font-weight: 700;
+    background: #fff;
+    color: #1e293b;
+}
+
+    .emp-input:focus {
+        border-color: var(--emp-primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+.emp-status-container {
+    margin-top: 15px;
+    margin-bottom: 20px;
+}
+
+.emp-status-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.emp-status-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    background: white;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.3s;
+    color: #64748b;
+}
+
+    .emp-status-btn.emp-active-selected {
+        border-color: #22c55e;
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    .emp-status-btn.emp-inactive-selected {
+        border-color: #ef4444;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+.emp-dialog-actions, .emp-dialog-actions-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.emp-add-btn, .btn-save-edit, .emp-save {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 10px;
+    background: #2563eb !important;
+    color: #ffffff !important;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: background .2s ease, transform .2s ease;
+}
+
+.emp-cancel, .btn-cancel-edit {
+    flex: 1;
+    background: #f1f5f9;
+    color: #475569;
+    border: 0;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.emp-delete-icon-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.emp-delete-icon {
+    width: 60px;
+    height: 60px;
+    background: #fee2e2;
+    color: #ef4444;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.emp-delete-title {
+    text-align: center;
+    color: #991b1b;
+    font-weight: 950;
+    font-size: 22px;
+}
+
+.emp-delete-text {
+    text-align: center;
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.emp-delete-confirm {
+    flex: 2;
+    background: #dc2626;
+    color: white;
+    border: 0;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.emp-toast-container {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10001;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.emp-toast {
+    min-width: 320px;
+    padding: 16px 25px;
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-weight: 950;
+    border: 1px solid var(--emp-line);
+    animation: toastIn 0.4s ease;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.emp-toast.success {
+    border-right: 6px solid #22c55e;
+    color: #166534;
+}
+
+.emp-toast.error {
+    border-right: 6px solid #ef4444;
+    color: #991b1b;
+}
+
+.emp-error {
+    font-size: 11px;
+    color: #dc2626;
+    font-weight: 800;
+    margin-top: 2px;
+}
+
+.emp-input-error {
+    border-color: #ef4444 !important;
+}
+
+.emp-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 14px 0 20px;
+    justify-content: flex-start;
+}
+
+/* البحث */
+.emp-search-input {
+    width: 340px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    font-weight: 800;
+    font-size: 14px;
+    outline: none;
+    transition: all .2s ease;
+}
+
+    .emp-search-input:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+    }
+
+/* الفلترة */
+.emp-filter-select {
+    min-width: 140px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    font-weight: 800;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+    .emp-filter-select:focus {
+        border-color: #2563eb;
+    }
+
+@media (max-width: 600px) {
+    .emp-field-row {
+        grid-template-columns: 1fr;
+    }
+}

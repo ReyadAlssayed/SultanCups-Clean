@@ -1,0 +1,171 @@
+﻿@page "/"
+@layout AuthLayout
+@inject NavigationManager Nav
+@inject SultanCups.Services.AdminService AdminService
+@inject SultanCups.Services.UserSession Session
+
+<EditForm Model="@this" OnSubmit="Submit" FormName="LoginForm">
+
+    <div class="auth-login">
+
+        @if (IsIdleLogout)
+        {
+            <div class="idle-alert-danger">
+                <div class="shimmer-effect"></div> @* طبقة الحركة الداخلية *@
+                <div class="alert-content">
+                    <svg class="secure-icon-bold" viewBox="0 0 448 512" width="18" height="18">
+                        <path d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z" fill="#7f1d1d" />
+                    </svg>
+                    <span>تم تسجيل خروجك تلقائياً لتعزيز أمان بياناتك بعد فترة من السكون.</span>
+                </div>
+            </div>
+        }
+
+        <div class="auth-logo">
+            <img src="images/Modren.png" alt="Modern Logo" />
+        </div>
+
+
+        <h2 class="auth-title">تسجيل الدخول</h2>
+
+        <div class="auth-fields">
+
+            <div class="auth-field">
+                <label>اسم المستخدم</label>
+                <input placeholder="اكتب اسم المستخدم"
+                       maxlength="40"
+                       @bind="username"
+                       disabled="@isLoading" />
+            </div>
+
+            <div class="auth-field auth-password">
+                <label>كلمة المرور</label>
+
+                <input type="@passwordType"
+                       placeholder="أدخل كلمة المرور"
+                       maxlength="40"
+                       @bind="password"
+                       disabled="@isLoading" />
+
+                <button type="button"
+                        class="auth-toggle"
+                        @onclick="TogglePassword"
+                        disabled="@isLoading">
+                    @(passwordType == "password" ? "إظهار" : "إخفاء")
+                </button>
+            </div>
+
+        </div>
+
+        <button type="submit"
+                class="auth-btn @(isLoading ? "is-busy" : "")"
+                disabled="@isLoading">
+
+            @if (isLoading)
+            {
+                <span class="btn-spinner"></span>
+                <span>جاري المعالجة...</span>
+            }
+            else
+            {
+                <span>دخول</span>
+            }
+
+        </button>
+
+    </div>
+</EditForm>
+
+@if (showDialog)
+{
+    <div class="auth-dialog">
+        <div class="auth-dialog-box @dialogType">
+            <div class="auth-dialog-icon">@dialogIcon</div>
+            <p>@dialogMessage</p>
+            <button type="button" @onclick="CloseDialog">حسناً</button>
+        </div>
+    </div>
+}
+
+
+
+@code {
+    string username = "";
+    string password = "";
+    string passwordType = "password";
+
+    bool isLoading = false;
+
+    bool showDialog = false;
+    string dialogMessage = "";
+    string dialogType = "";
+    string dialogIcon = "";
+
+
+    bool IsIdleLogout => Nav.Uri.Contains("reason=idle");
+
+    void TogglePassword()
+        => passwordType = passwordType == "password" ? "text" : "password";
+
+    async Task Submit()
+    {
+
+        showDialog = false;
+
+        if (isLoading) return;
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            ShowError("اسم المستخدم مطلوب");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            ShowError("كلمة المرور مطلوبة");
+            return;
+        }
+
+        isLoading = true;
+
+        try
+        {
+            await Task.Delay(250);
+
+            var admin = await AdminService.LoginAsync(username, password);
+
+            if (admin == null)
+            {
+                ShowError("اسم المستخدم أو كلمة المرور غير صحيحة");
+                return;
+            }
+
+            Session.AdminId = admin.admin_id;
+            Session.FullName = admin.full_name;
+            Session.Role = admin.role;
+
+            Nav.NavigateTo("/Stats");
+
+            username = "";
+            password = "";
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    void ShowError(string text)
+    {
+        dialogMessage = text;
+        dialogType = "error";
+        dialogIcon = "✖";
+        showDialog = true;
+    }
+
+    void CloseDialog() => showDialog = false;
+}

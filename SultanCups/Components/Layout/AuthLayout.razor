@@ -1,0 +1,66 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Nav
+
+<div class="auth-shell">
+    <div class="auth-card auth-anim @(isLeaving ? "leaving" : "")">
+
+        <div class="auth-right"
+             style="background:url('images/Forward.png') center center / cover no-repeat;">
+
+            <div class="auth-right-inner">
+
+                <p class="auth-hadith">
+                    قال رسول الله ﷺ
+                    <br />
+                    «من كان حالفًا فليحلف بالله أو ليصمت»
+                </p>
+
+
+                <h2 class="auth-brand">مصنع أكواب السلطان</h2>
+
+                @if (IsRegister)
+                {
+                    <button class="auth-ghost" @onclick="GoLogin">
+                        تسجيل الدخول
+                    </button>
+                }
+                else
+                {
+                    <button class="auth-ghost" @onclick="GoRegister">
+                        حساب جديد
+                    </button>
+                }
+
+            </div>
+        </div>
+
+        <div class="auth-left">
+            @Body
+        </div>
+
+    </div>
+</div>
+
+@code {
+    bool isLeaving = false;
+
+    bool IsRegister =>
+        Nav.ToBaseRelativePath(Nav.Uri)
+           .StartsWith("register", StringComparison.OrdinalIgnoreCase);
+
+    async Task NavigateSmooth(string url)
+    {
+        if (isLeaving) return;
+
+        isLeaving = true;
+        StateHasChanged();
+
+        await Task.Delay(250); // 👈 مدة قصيرة جداً smooth
+
+        Nav.NavigateTo(url);
+        isLeaving = false;
+    }
+
+    Task GoLogin() => NavigateSmooth("/");
+    Task GoRegister() => NavigateSmooth("/register");
+}

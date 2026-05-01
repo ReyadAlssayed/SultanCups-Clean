@@ -1,0 +1,445 @@
+﻿@page "/Admins"
+
+@layout Layout.MainLayout
+@inject NavigationManager Nav
+@inject SultanCups.Services.AdminService AdminService
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="ad-page">
+
+    <div class="pro-topbar">
+        <div></div>
+
+        <h2 class="pro-title">مسؤولي النظام</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+    <div class="ad-card">
+
+        <div class="ad-table-wrap">
+            <table class="ad-table">
+
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>اسم المستخدم</th>
+                        <th>رقم الهاتف</th>
+                        <th>الدور</th>
+                        <th>نشط</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Admins is null)
+                    {
+                        <tr>
+                            <td colspan="6">جاري التحميل...</td>
+                        </tr>
+                    }
+                    else if (Admins.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="st-empty-text">
+                                <div class="empty-state">
+                
+                                    <img src="images/Empty.jpg" class="empty-img" />
+
+                                    <span>لا توجد بيانات</span>
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var a in Admins)
+                        {
+                            <tr>
+                                <td class="ad-name">@a.full_name</td>
+                                <td>@a.username</td>
+                                <td class="ad-phone">@a.phone</td>
+                                <td class="ad-role">@a.role</td>
+
+                                <td class="ad-active">
+                                    <span class="ad-badge @(a.is_active ? "ad-on" : "ad-off")">
+                                        @(a.is_active ? "نشط" : "غير نشط")
+                                    </span>
+                                </td>
+
+                                <td class="ad-actions">
+                                    <button type="button" class="ad-edit" @onclick="() => OpenEditDialog(a)">تعديل</button>
+                                    <button type="button" class="ad-delete" @onclick="() => OpenDeleteDialog(a)">تعطيل</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+
+</div>
+
+@if (ShowEditDialog)
+{
+    <div class="ad-dialog-overlay">
+        <div class="ad-dialog-box">
+
+            <div class="ad-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="ad-dialog-body">
+                <h3>تعديل بيانات المسؤول</h3>
+
+                <div class="ad-fields-grid">
+                    <div class="full-width">
+                        <label class="ad-label">الاسم الكامل</label>
+                        <input class="ad-input @(FullNameError != null ? "ad-input-error" : "")"
+                               @bind="EditAdmin.full_name"
+                               maxlength="50" />
+                        @if (!string.IsNullOrWhiteSpace(FullNameError))
+                        {
+                            <div class="ad-error">@FullNameError</div>
+                        }
+                    </div>
+
+                    <div>
+                        <label class="ad-label">اسم المستخدم</label>
+                        <input class="ad-input @(UsernameError != null ? "ad-input-error" : "")"
+                               @bind="EditAdmin.username"
+                               maxlength="50" />
+                        @if (!string.IsNullOrWhiteSpace(UsernameError))
+                        {
+                            <div class="ad-error">@UsernameError</div>
+                        }
+                    </div>
+
+                    <div>
+                        <label class="ad-label">رقم الهاتف</label>
+                        <input class="ad-input @(PhoneError != null ? "ad-input-error" : "")"
+                               @bind="EditAdmin.phone"
+                               maxlength="10" />
+                        @if (!string.IsNullOrWhiteSpace(PhoneError))
+                        {
+                            <div class="ad-error">@PhoneError</div>
+                        }
+                    </div>
+
+                    <div class="full-width">
+                        <label class="ad-label">الدور الوظيفي</label>
+                        <select class="ad-input @(RoleError != null ? "ad-input-error" : "")" @bind="EditAdmin.role">
+                            <option value="Admin1">Admin1</option>
+                            <option value="Admin2">Admin2</option>
+                        </select>
+
+                        @if (!string.IsNullOrWhiteSpace(RoleError))
+                        {
+                            <div class="ad-error">@RoleError</div>
+                        }
+                    </div>
+                </div>
+                <div class="ad-status-wrapper">
+                    <label class="ad-label">حالة الحساب</label>
+                    <div class="ad-status-btns">
+        
+                        <button type="button"
+                                class="status-btn @(EditAdmin.is_active ? "active-selected" : "")"
+                                @onclick="() => EditAdmin.is_active = true">
+                            نشط
+                        </button>
+
+                        <button type="button"
+                                class="status-btn @(!EditAdmin.is_active ? "inactive-selected" : "")"
+                                @onclick="() => EditAdmin.is_active = false">
+                            معطل
+                        </button>
+
+                    </div>
+                </div>
+
+                <div class="ad-dialog-actions">
+                    <button type="button" class="ad-save" @onclick="SaveEditAdmin">حفظ التعديلات</button>
+                    <button type="button" class="ad-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+@if (ShowDeleteDialog && DeleteAdminItem is not null)
+{
+    <div class="ad-dialog-overlay">
+        <div class="ad-dialog-box ad-delete-dialog-box">
+
+            <div class="ad-dialog-top-image ad-delete-top-image">
+                <img src="images/background.png" />
+            </div>
+
+            <div class="ad-dialog-body ad-delete-dialog-body">
+                <div class="ad-delete-icon-wrap">
+                    <div class="ad-delete-icon">!</div>
+                </div>
+
+                <h3 class="ad-delete-title">تعطيل المسؤول</h3>
+                <p class="ad-delete-text">
+                    سيتم تعطيل المسؤول <strong>@DeleteAdminItem.full_name</strong>
+                    ومنعه من تسجيل الدخول.
+                </p>
+
+                <div class="ad-dialog-actions">
+                    <button type="button" class="ad-delete-confirm" @onclick="ConfirmDeleteAdmin">تأكيد التعطيل</button>
+                    <button type="button" class="ad-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(ToastMessage))
+{
+    <div class="ad-toast-container">
+        <div class="ad-toast @(IsErrorToast ? "error" : "success")">
+            <div class="ad-toast-icon">@(IsErrorToast ? "✕" : "✓")</div>
+            <span>@ToastMessage</span>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+
+@code {
+    List<SultanCups.Models.Admain>? Admins;
+
+    bool ShowEditDialog = false;
+    bool ShowDeleteDialog = false;
+
+    string? FullNameError;
+    string? UsernameError;
+    string? PhoneError;
+    string? RoleError;
+
+    // متغيرات الإشعارات
+    string? ToastMessage;
+    bool IsErrorToast = false;
+
+    SultanCups.Models.Admain? EditAdmin;
+    SultanCups.Models.Admain? DeleteAdminItem;
+
+    bool IsExporting = false;
+
+    void OpenEditDialog(SultanCups.Models.Admain a)
+    {
+        EditAdmin = new SultanCups.Models.Admain
+        {
+            admin_id = a.admin_id,
+            full_name = a.full_name,
+            username = a.username,
+            phone = a.phone,
+            role = a.role,
+            is_active = a.is_active,
+            password_hash = a.password_hash,
+            created_at = a.created_at
+        };
+
+        ShowEditDialog = true;
+    }
+
+    async Task ShowToast(string message, bool isError = false)
+    {
+        ToastMessage = message;
+        IsErrorToast = isError;
+        StateHasChanged();
+        await Task.Delay(3000);
+        ToastMessage = null;
+        StateHasChanged();
+    }
+
+    void OpenDeleteDialog(SultanCups.Models.Admain a)
+    {
+        DeleteAdminItem = a;
+        ShowDeleteDialog = true;
+    }
+
+    async Task SaveEditAdmin()
+    {
+        if (EditAdmin is null || Admins is null)
+            return;
+
+        // 1. تصفير الأخطاء
+        FullNameError = null;
+        UsernameError = null;
+        PhoneError = null;
+        RoleError = null;
+
+        var name = EditAdmin.full_name?.Trim();
+        var username = EditAdmin.username?.Trim();
+        var phone = EditAdmin.phone?.Trim();
+        var role = EditAdmin.role?.Trim();
+
+        bool hasError = false;
+
+        // 2. التحقق من الحقول الفارغة والصيغ (منطقك السابق)
+        if (string.IsNullOrWhiteSpace(name)) { FullNameError = "الاسم الكامل مطلوب"; hasError = true; }
+        else if (!name.All(c => char.IsLetter(c) || c == ' ')) { FullNameError = "الاسم يجب أن يحتوي على حروف فقط"; hasError = true; }
+
+        if (string.IsNullOrWhiteSpace(username)) { UsernameError = "اسم المستخدم مطلوب"; hasError = true; }
+        else if (!username.All(char.IsLetterOrDigit)) { UsernameError = "مسموح فقط حروف وأرقام"; hasError = true; }
+
+        if (string.IsNullOrWhiteSpace(phone)) { PhoneError = "رقم الهاتف مطلوب"; hasError = true; }
+        else if (phone.Length != 10 || !phone.StartsWith("09")) { PhoneError = "رقم الهاتف غير صحيح"; hasError = true; }
+
+        if (string.IsNullOrWhiteSpace(role)) { RoleError = "الدور مطلوب"; hasError = true; }
+
+        if (hasError) return;
+
+        // ---------------------------------------------------------
+        // 3. منع التكرار (الفحص الجديد)
+        // ---------------------------------------------------------
+
+        // فحص إذا كان اسم المستخدم محجوزاً لشخص آخر
+        var usernameExists = Admins.Any(a => a.username.Equals(username, StringComparison.OrdinalIgnoreCase)
+                                         && a.admin_id != EditAdmin.admin_id);
+        if (usernameExists)
+        {
+            UsernameError = "اسم المستخدم هذا مستخدم من قبل مسؤول آخر";
+            hasError = true;
+        }
+
+        // فحص إذا كان رقم الهاتف محجوزاً لشخص آخر
+        var phoneExists = Admins.Any(a => a.phone == phone && a.admin_id != EditAdmin.admin_id);
+        if (phoneExists)
+        {
+            PhoneError = "رقم الهاتف هذا مسجل لمسؤول آخر";
+            hasError = true;
+        }
+
+        if (hasError) return;
+        // ---------------------------------------------------------
+
+        // 4. تنفيذ التحديث
+        var updated = await AdminService.UpdateAdmin(EditAdmin);
+
+        if (updated)
+        {
+            Admins = await AdminService.GetAdmins();
+            CloseDialogs();
+            _ = ShowToast("تم تحديث بيانات المسؤول بنجاح");
+        }
+        else
+        {
+            _ = ShowToast("حدث خطأ أثناء التحديث، حاول مرة أخرى", true);
+        }
+    }
+
+    async Task ConfirmDeleteAdmin()
+    {
+        if (DeleteAdminItem is null) return;
+
+        var deleted = await AdminService.DeleteAdmin(DeleteAdminItem.admin_id);
+
+        if (deleted)
+        {
+            Admins = await AdminService.GetAdmins();
+            CloseDialogs();
+            _ = ShowToast("تم تعطيل المسؤول بنجاح");
+        }
+        else
+        {
+            _ = ShowToast("عذراً، تعذر حذف المسؤول", true); // إشعار فشل
+        }
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting) return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("المسؤولين");
+
+            ws.Cell(1, 1).Value = "رقم";
+            ws.Cell(1, 2).Value = "الاسم";
+            ws.Cell(1, 3).Value = "اسم المستخدم";
+            ws.Cell(1, 4).Value = "الهاتف";
+            ws.Cell(1, 5).Value = "الدور";
+            ws.Cell(1, 6).Value = "الحالة";
+            ws.Cell(1, 7).Value = "تاريخ الإنشاء";
+
+            int row = 2;
+
+            foreach (var a in Admins ?? new())
+            {
+                ws.Cell(row, 1).Value = a.admin_id;
+                ws.Cell(row, 2).Value = a.full_name;
+                ws.Cell(row, 3).Value = a.username;
+                ws.Cell(row, 4).Value = a.phone;
+                ws.Cell(row, 5).Value = a.role;
+                ws.Cell(row, 6).Value = a.is_active ? "نشط" : "معطل";
+                ws.Cell(row, 7).Value = a.created_at.ToString("yyyy-MM-dd HH:mm");
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Admins_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void CloseDialogs()
+    {
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+        EditAdmin = null;
+        DeleteAdminItem = null;
+
+        FullNameError = null;
+        UsernameError = null;
+        PhoneError = null;
+        RoleError = null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Admins = await AdminService.GetAdmins();
+    }
+}

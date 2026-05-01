@@ -1,0 +1,579 @@
+﻿@page "/OtherPurchases"
+@using SultanCups.Models
+@using SultanCups.Services
+@layout Layout.MainLayout
+@inject FinanceService FinanceService
+@inject ToastService ToastService
+@inject NavigationManager Nav
+@inject SultanCups.Services.UserSession Session
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="mk-page">
+
+    <div class="pro-topbar">
+        <button class="mk-add-btn" @onclick="OpenAddDialog">إضافة مصروف</button>
+
+        <h2 class="mk-title-center">المصروفات الأخرى</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+    <div class="inv-card">
+        <div class="mk-table-wrap">
+            <table class="st-main-table">
+                <thead>
+                    <tr>
+                        <th>الوصف</th>
+                        <th>الكمية</th>
+                        <th>المبلغ</th>
+                        <th>التاريخ</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (List == null)
+                    {
+                        <tr><td colspan="5">جاري التحميل...</td></tr>
+                    }
+                    else if (List.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="st-empty-text">
+                                <div class="empty-state">
+                                    <img src="images/Empty.jpg" class="empty-img" />
+                                    <span>لا توجد بيانات</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var p in List)
+                        {
+                            <tr class="st-row-item">
+                                <td class="st-col-name">@p.name</td>
+                                <td>@p.quantity</td>
+                                <td>@p.cost.ToString("0.00") د.ل</td>
+                                <td>@p.purchase_date.ToShortDateString()</td>
+                                <td class="mk-actions">
+                                    <button class="mk-edit" @onclick="() => OpenEditDialog(p)">تعديل</button>
+
+                                    <button class="inv-small inv-edit" @onclick="() => OpenAddAmountDialog(p)">
+                                        إضافة مبلغ
+                                    </button>
+
+                                    <button class="inv-small inv-del" @onclick="() => OpenReturnAmountDialog(p)">
+                                        استرجاع مبلغ
+                                    </button>
+
+                                    <button class="mk-delete" @onclick="() => OpenDeleteDialog(p)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowAddDialog || ShowEditDialog)
+{
+    <div class="inv-dialog-overlay">
+        <div class="inv-dialog-box">
+            <div class="inv-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="inv-dialog-body">
+
+                <h3>@(ShowAddDialog ? "إضافة مصروف" : "تعديل مصروف")</h3>
+
+                <div class="inv-fields-grid">   
+                    
+                    <div class="inv-field">
+                        <label class="inv-label">الوصف</label>
+                        <input maxlength="200"
+                               class="inv-input-dialog @(string.IsNullOrEmpty(Message) ? "" : "is-invalid")"
+                               @bind="Form.name"
+                               @oninput="@((e) => { Message = ""; Form.name = e.Value?.ToString(); })" />
+
+                        @if (!string.IsNullOrEmpty(Message))
+                        {
+                            <div class="pro-error-text">@Message</div>
+                        }
+                    </div>
+
+                    <div class="inv-field">
+                        <label class="inv-label">الكمية</label>
+                        <input type="number" min="1"
+                               class="inv-input-dialog"
+                               @bind="Form.quantity" />
+                    </div>
+
+                    @if (ShowAddDialog)
+                    {
+                        <div class="inv-field">
+                            <label class="inv-label">المبلغ</label>
+                            <input type="number" step="0.01"
+                                   class="inv-input-dialog @(string.IsNullOrEmpty(CostError) ? "" : "is-invalid")"
+                                   @bind="Form.cost" />
+
+                            @if (!string.IsNullOrEmpty(CostError))
+                            {
+                                <div class="pro-error-text">@CostError</div>
+                            }
+                        </div>
+                    }
+
+                    <div class="inv-field">
+                        <label class="inv-label">الخزنة</label>
+
+                        <select class="inv-input-dialog @(string.IsNullOrEmpty(CashBoxError) ? "" : "is-invalid")"
+                                @bind="Form.cash_box_id">
+
+                            <option value="0">اختر الخزنة</option>
+
+                            @foreach (var c in CashBoxes)
+                            {
+                                <option value="@c.cash_box_id">@c.name</option>
+                            }
+
+                        </select>
+                        @if (!string.IsNullOrEmpty(CashBoxError))
+                        {
+                            <div class="pro-error-text">@CashBoxError</div>
+                        }
+                    </div>
+
+                    <div class="inv-field">
+                        <label class="inv-label">التاريخ</label>
+                        <input type="date"
+                               class="inv-input-dialog"
+                               @bind="Form.purchase_date" />
+                    </div>
+
+                    <div class="inv-field full-width">
+                        <label class="inv-label">ملاحظات</label>
+                        <textarea maxlength="200"
+                                  class="inv-input-dialog"
+                                  @bind="Form.notes"></textarea>
+                    </div>
+
+                </div>
+
+                <div class="inv-dialog-actions">
+                    <button class="inv-save" @onclick="Save">حفظ</button>
+                    <button class="inv-cancel" @onclick="Close">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box inv-delete-dialog-box">
+
+            <div class="pro-dialog-top-image inv-delete-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body inv-delete-dialog-body">
+
+                <div class="inv-delete-icon-wrap">
+                    <div class="inv-delete-icon">!</div>
+                </div>
+
+                <h3 class="inv-delete-title">تأكيد حذف المصروف</h3>
+
+                <p class="inv-delete-text">
+                    هل تريد حذف المصروف "@Form.name"؟
+                    <br /><br />
+
+                    <span style="color:#16a34a;font-weight:800;">
+                        سيتم إرجاع مبلغ
+                        @Form.cost.ToString("0.00") د.ل
+                    </span>
+
+                    <br />
+
+                    <span style="color:#64748b;font-size:13px;">
+                        إلى خزنة @GetCashBoxName(Form.cash_box_id)
+                    </span>
+                </p>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-delete-confirm" @onclick="ConfirmDelete">
+                        حذف الآن
+                    </button>
+
+                    <button class="pro-cancel" @onclick="Close">
+                        إلغاء
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowAddAmountDialogBox)
+{
+    <div class="inv-dialog-overlay">
+        <div class="inv-dialog-box">
+
+            <div class="inv-dialog-body">
+
+                <h3>إضافة مبلغ</h3>
+
+                <div class="inv-field">
+                    <label class="inv-label">المصروف</label>
+                    <input class="inv-input-dialog" value="@Form.name" readonly />
+                </div>
+
+                <div class="inv-field">
+                    <label class="inv-label">المبلغ</label>
+                    <input type="number"
+                           step="0.01"
+                           class="inv-input-dialog @(string.IsNullOrEmpty(Message) ? "" : "is-invalid")"
+                           @bind="ExtraAmount" />
+
+                    @if (!string.IsNullOrEmpty(Message))
+                    {
+                        <div class="pro-error-text">@Message</div>
+                    }
+                </div>
+
+                <div class="inv-dialog-actions">
+                    <button class="inv-save" @onclick="SaveAddAmount">حفظ</button>
+                    <button class="inv-cancel" @onclick="Close">إلغاء</button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+}
+
+
+@if (ShowReturnAmountDialogBox)
+{
+    <div class="inv-dialog-overlay">
+        <div class="inv-dialog-box">
+            <div class="inv-dialog-body">
+
+                <h3>استرجاع مبلغ</h3>
+
+                <div class="inv-field">
+                    <label class="inv-label">المصروف</label>
+                    <input class="inv-input-dialog" value="@Form.name" readonly />
+                </div>
+
+                <div class="inv-field">
+                    <label class="inv-label">المبلغ</label>
+                    <input type="number"
+                           step="0.01"
+                           class="inv-input-dialog @(string.IsNullOrEmpty(Message) ? "" : "is-invalid")"
+                           @bind="ReturnAmount" />
+
+                    @if (!string.IsNullOrEmpty(Message))
+                    {
+                        <div class="pro-error-text">@Message</div>
+                    }
+                </div>
+
+                <div class="inv-dialog-actions">
+                    <button class="inv-save" @onclick="SaveReturnAmount">حفظ</button>
+                    <button class="inv-cancel" @onclick="Close">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+
+@code {
+
+    List<OtherPurchase>? List;
+
+    OtherPurchase Form = new();
+    List<CashBox> CashBoxes = new();
+
+    bool ShowAddDialog, ShowEditDialog, ShowDeleteDialog;
+
+    string Message = "";
+    string CostError = "";
+
+    string CashBoxError = "";
+
+    bool IsExporting = false;
+
+    bool ShowAddAmountDialogBox;
+    decimal ExtraAmount;
+
+    bool ShowReturnAmountDialogBox;
+    decimal ReturnAmount;
+
+
+    int adminId => Session.AdminId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsLoggedIn)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        List = await FinanceService.GetOtherPurchases();
+        CashBoxes = await FinanceService.GetActiveCashBoxes();
+    }
+
+    void OpenAddDialog()
+    {
+        Form = new() { quantity = 1, purchase_date = DateTime.UtcNow };
+        ShowAddDialog = true;
+        Message = "";
+        CostError = "";
+        CashBoxError = "";
+    }
+
+    void OpenEditDialog(OtherPurchase p)
+    {
+        Form = new OtherPurchase
+        {
+            other_purchase_id = p.other_purchase_id,
+            name = p.name,
+            quantity = p.quantity,
+            cost = p.cost,
+            purchase_date = p.purchase_date,
+            notes = p.notes,
+            cash_box_id = p.cash_box_id
+        };
+
+        ShowEditDialog = true;
+
+        Message = "";
+        CostError = "";
+        CashBoxError = "";
+    }
+
+    void OpenDeleteDialog(OtherPurchase p)
+    {
+        Form = p;
+        ShowDeleteDialog = true;
+    }
+
+    async Task Save()
+    {
+        try
+        {
+            Message = "";
+            CostError = "";
+            CashBoxError = "";
+
+            if (string.IsNullOrWhiteSpace(Form.name))
+            {
+                Message = "الوصف مطلوب";
+                return;
+            }
+
+            if (ShowAddDialog && Form.cost <= 0)
+            {
+                CostError = "المبلغ يجب أن يكون أكبر من صفر";
+                return;
+            }
+
+            if (Form.cash_box_id <= 0)
+            {
+                CashBoxError = "اختر الخزنة";
+                return;
+            }
+
+            Form.purchase_date =
+                DateTime.SpecifyKind(Form.purchase_date.Date, DateTimeKind.Utc);
+
+            bool isAdd = ShowAddDialog;
+
+            if (isAdd)
+                await FinanceService.AddOtherPurchase(Form, adminId);
+            else
+                await FinanceService.UpdateOtherPurchase(Form, adminId);
+
+            List = await FinanceService.GetOtherPurchases();
+
+            Close();
+
+            ToastService.ShowToast(
+                isAdd ? "تم إضافة المصروف بنجاح" : "تم تعديل المصروف بنجاح",
+                "success");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowToast(ex.Message, "error");
+        }
+    }
+
+    async Task ConfirmDelete()
+    {
+        await FinanceService.DeleteOtherPurchase(Form.other_purchase_id,adminId);
+        List = await FinanceService.GetOtherPurchases();
+        Close();
+        ToastService.ShowToast("تم حذف المصروف بنجاح", "success");
+    }
+
+    async Task SaveAddAmount()
+    {
+        if (ExtraAmount <= 0)
+        {
+            Message = "أدخل مبلغ أكبر من 0";
+            return;
+        }
+
+        await FinanceService.AddOtherPurchasePayment(
+            Form.other_purchase_id,
+            ExtraAmount,
+            adminId);
+
+        List = await FinanceService.GetOtherPurchases();
+        Close();
+        ToastService.ShowToast("تمت إضافة الدفعة بنجاح", "success");
+    }
+
+    void OpenAddAmountDialog(OtherPurchase p)
+    {
+        Form = p;
+        ExtraAmount = 0;
+        ShowAddAmountDialogBox = true;
+    }
+
+    void OpenReturnAmountDialog(OtherPurchase p)
+    {
+        Form = p;
+        ReturnAmount = 0;
+        ShowReturnAmountDialogBox = true;
+    }
+
+    string GetCashBoxName(int id)
+    {
+        return CashBoxes.FirstOrDefault(x => x.cash_box_id == id)?.name ?? "-";
+    }
+
+    async Task SaveReturnAmount()
+    {
+        if (ReturnAmount <= 0)
+        {
+            Message = "أدخل مبلغ أكبر من 0";
+            return;
+        }
+
+        if (ReturnAmount > Form.cost)
+        {
+            Message = "المبلغ أكبر من قيمة المصروف";
+            return;
+        }
+
+        await FinanceService.ReverseOtherPurchasePayment(
+            Form.other_purchase_id,
+            ReturnAmount,
+            adminId);
+
+        List = await FinanceService.GetOtherPurchases();
+        Close();
+        ToastService.ShowToast("تم استرجاع المبلغ بنجاح", "success");
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting) return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("المصروفات الأخرى");
+
+            ws.Cell(1, 1).Value = "رقم";
+            ws.Cell(1, 2).Value = "الوصف";
+            ws.Cell(1, 3).Value = "الكمية";
+            ws.Cell(1, 4).Value = "المبلغ";
+            ws.Cell(1, 5).Value = "التاريخ";
+            ws.Cell(1, 6).Value = "الخزنة";
+            ws.Cell(1, 7).Value = "ملاحظات";
+
+            int row = 2;
+
+            foreach (var p in List ?? new())
+            {
+                ws.Cell(row, 1).Value = p.other_purchase_id;
+                ws.Cell(row, 2).Value = p.name;
+                ws.Cell(row, 3).Value = p.quantity;
+                ws.Cell(row, 4).Value = p.cost;
+                ws.Cell(row, 5).Value = p.purchase_date.ToString("yyyy-MM-dd");
+                ws.Cell(row, 6).Value = GetCashBoxName(p.cash_box_id);
+                ws.Cell(row, 7).Value = p.notes;
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"OtherPurchases_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+
+    }
+
+    void Close()
+    {
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+        ShowAddAmountDialogBox = false;
+        ShowReturnAmountDialogBox = false;
+
+        Message = "";
+        CostError = "";
+        CashBoxError = "";
+
+        ExtraAmount = 0;
+        ReturnAmount = 0;
+
+        Form = new();
+    }
+}

@@ -1,0 +1,345 @@
+﻿/* زر تفاصيل */
+.pro-btn-info {
+    padding: 7px 14px;
+    border: none;
+    background: #60a5fa;
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-weight: 500;
+}
+
+    .pro-btn-info:hover {
+        background: #3b82f6;
+    }
+
+    .pro-btn-info:active {
+        transform: scale(0.97);
+    }
+
+.sal-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+}
+
+.sal-dialog-box {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px 28px;
+    width: 420px;
+    max-width: 95%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    animation: fadeIn 0.2s ease;
+}
+
+.sal-dialog-body h3 {
+    text-align: center;
+    margin-bottom: 18px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.sal-dialog-body div {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 14px;
+    border-bottom: 1px dashed #f1f5f9;
+}
+
+    .sal-dialog-body div:last-child {
+        border-bottom: none;
+    }
+
+.sal-dialog-body b {
+    color: #475569;
+    font-weight: 500;
+}
+
+.sal-dialog-body span {
+    color: #0f172a;
+    font-weight: 500;
+}
+
+.btn-cancel {
+    margin-top: 18px;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background: #d1d5db;
+    color: #111827;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s;
+    font-weight: 500;
+}
+
+    .btn-cancel:hover {
+        background: #9ca3af;
+    }
+
+.details-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+    .details-list .row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px dashed #f1f5f9;
+        font-size: 14px;
+    }
+
+        .details-list .row span:first-child {
+            color: #64748b;
+        }
+
+        .details-list .row span:last-child {
+            color: #0f172a;
+            font-weight: 500;
+        }
+
+
+.sal-dialog-top {
+    height: 6px;
+    background: #1d4ed8;
+    border-radius: 14px 14px 0 0;
+    margin: -24px -28px 18px -28px;
+}
+
+
+/* داخل / خارج بدون خلفية */
+.pro-total1,
+.pro-status-tag1 {
+    background: none !important;
+    min-width: auto;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 0;
+}
+
+.pro-total1 {
+    color: #16a34a;
+}
+
+.pro-status-tag1 {
+    color: #dc2626;
+}
+
+.name-change-green {
+    color: #16a34a;
+    font-weight: 800;
+    margin-right: 6px;
+}
+
+.pro-btn-excel:disabled {
+    opacity: .85;
+    cursor: not-allowed;
+}
+
+.pro-topbar {
+    display: flex;
+    align-items: center;
+}
+
+.pro-btn-excel {
+    margin-right: auto;
+    background: #22c55e;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .15s;
+}
+
+    .pro-btn-excel:hover {
+        opacity: .92;
+    }
+
+    .pro-btn-excel:disabled {
+        opacity: .75;
+        cursor: not-allowed;
+    }
+
+.excel-loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .22);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.excel-loading-box {
+    min-width: 220px;
+    background: linear-gradient(135deg,#2563eb,#1d4ed8);
+    color: white;
+    padding: 18px 26px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 18px 40px rgba(37,99,235,.28);
+}
+
+    .excel-loading-box::before {
+        content: "";
+        width: 22px;
+        height: 22px;
+        border: 3px solid rgba(255,255,255,.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: excelSpin .8s linear infinite;
+    }
+
+/* تحسين أعمدة الحركات المالية */
+.pro-table td,
+.pro-table th {
+    white-space: normal;
+}
+
+    .pro-table td:nth-child(6),
+    .pro-table th:nth-child(6) {
+        max-width: 220px;
+        width: 220px;
+    }
+
+    .pro-table td:nth-child(7),
+    .pro-table th:nth-child(7) {
+        max-width: 280px;
+        width: 280px;
+    }
+
+.change-legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 600;
+    margin: 10px 4px 14px 0;
+}
+
+    .change-legend .name-change-dot {
+        margin-right: 0;
+    }
+
+.dt-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.dt-day {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.dt-time {
+    background: #dcfce7;
+    color: #15803d;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    min-width: 58px;
+    text-align: center;
+}
+
+.name-change-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.change-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.arrow-change {
+    color: #f59e0b;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.change-inline {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+    .change-inline b {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+.arrow-change {
+    color: #f59e0b;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+
+    .change-row:last-child {
+        border-bottom: none;
+    }
+
+    .change-row span {
+        color: #64748b;
+    }
+
+    .change-row b {
+        color: #0f172a;
+    }
+
+@keyframes excelSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

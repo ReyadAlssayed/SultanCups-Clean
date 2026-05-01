@@ -1,0 +1,290 @@
+﻿@page "/register"
+@layout AuthLayout
+@inject SultanCups.Services.AdminService AdminService
+@inject NavigationManager Nav
+
+@using BCrypt.Net
+
+<EditForm Model="@this" OnSubmit="Submit">
+
+    <div class="auth-register">
+
+        <div class="auth-logo">
+            <img src="images/Modren.png" alt="Modern Logo" />
+        </div>
+
+        <h2 class="auth-title">عمل حساب مسؤول جديد</h2>
+
+        <div class="auth-fields">
+
+            <div class="auth-field">
+                <label>اسم المسؤول</label>
+                <input maxlength="50"
+                       placeholder="اكتب الاسم الكامل"
+                       @bind="fullName"
+                       disabled="@isLoading" />
+            </div>
+
+            <div class="auth-field">
+                <label>اسم المستخدم</label>
+                <input maxlength="50"
+                       placeholder="اكتب اسم المستخدم"
+                       @bind="username"
+                       disabled="@isLoading" />
+            </div>
+
+            <div class="auth-field">
+                <label>رقم الهاتف</label>
+                <input maxlength="10"
+                       placeholder="09xxxxxxxx"
+                       @bind="phone"
+                       disabled="@isLoading" />
+            </div>
+
+            <div class="auth-field">
+                <label>الصلاحية</label>
+                <select @bind="role" disabled="@isLoading">
+                    <option value="Admin2">مسؤول ثاني</option>
+                    <option value="Admin1">مسؤول أول</option>
+                </select>
+            </div>
+
+            <div class="auth-field auth-password">
+                <label>كلمة المرور</label>
+
+                <input type="@passwordType"
+                       maxlength="30"
+                       placeholder="أدخل كلمة المرور"
+                       @bind="password"
+                       disabled="@isLoading" />
+
+                <button type="button"
+                        class="auth-toggle"
+                        @onclick="TogglePassword"
+                        disabled="@isLoading">
+                    @(passwordType == "password" ? "إظهار" : "إخفاء")
+                </button>
+            </div>
+
+            <div class="auth-field auth-password">
+                <label>تأكيد كلمة المرور</label>
+
+                <input type="@confirmPasswordType"
+                       maxlength="30"
+                       placeholder="أعد كلمة المرور"
+                       @bind="confirmPassword"
+                       disabled="@isLoading" />
+
+                <button type="button"
+                        class="auth-toggle"
+                        @onclick="ToggleConfirmPassword"
+                        disabled="@isLoading">
+                    @(confirmPasswordType == "password" ? "إظهار" : "إخفاء")
+                </button>
+            </div>
+
+        </div>
+
+        <button type="submit"
+                class="auth-btn @(isLoading ? "is-busy" : "")"
+                disabled="@isLoading">
+            @(isLoading ? "جاري المعالجة..." : "عمل حساب")
+        </button>
+
+    </div>
+</EditForm>
+
+@if (showDialog)
+{
+    <div class="auth-dialog">
+        <div class="auth-dialog-box @dialogType">
+            <div class="auth-dialog-icon">@dialogIcon</div>
+            <p>@dialogMessage</p>
+            <button @onclick="CloseDialog">حسناً</button>
+        </div>
+    </div>
+}
+
+@code {
+
+    string fullName = "";
+    string username = "";
+    string phone = "";
+    string role = "Admin2";
+    string password = "";
+    string confirmPassword = "";
+
+    string passwordType = "password";
+    string confirmPasswordType = "password";
+
+    bool isLoading = false;
+
+    bool showDialog = false;
+    string dialogMessage = "";
+    string dialogType = "";
+    string dialogIcon = "";
+    bool goToLoginAfterClose = false;
+
+    void TogglePassword()
+        => passwordType = passwordType == "password" ? "text" : "password";
+
+    void ToggleConfirmPassword()
+        => confirmPasswordType = confirmPasswordType == "password" ? "text" : "password";
+
+    async Task Submit()
+    {
+        if (isLoading) return;
+
+        fullName = fullName.Trim();
+        username = username.Trim();
+        phone = phone.Trim();
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            ShowError("الاسم الكامل مطلوب");
+            return;
+        }
+
+        if (fullName.Length > 50)
+        {
+            ShowError("الاسم الكامل طويل جداً");
+            return;
+        }
+
+        if (fullName.Any(char.IsDigit))
+        {
+            ShowError("الاسم الكامل لا يحتوي أرقام");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            ShowError("اسم المستخدم مطلوب");
+            return;
+        }
+
+        if (username.Length > 50)
+        {
+            ShowError("اسم المستخدم طويل جداً");
+            return;
+        }
+
+        if (username.Contains(" "))
+        {
+            ShowError("اسم الدخول لا يسمح بالفراغات");
+            return;
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(username, @"^(?=.*[\p{L}])[\p{L}0-9]{3,50}$"))
+        {
+            ShowError("اسم الدخول يجب أن يحتوي حرفًا واحدًا على الأقل، ويسمح بالعربي أو الإنجليزي مع الأرقام");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            ShowError("رقم الهاتف مطلوب");
+            return;
+        }
+
+        if (phone.Length != 10 || !phone.StartsWith("09") || !phone.All(char.IsDigit))
+        {
+            ShowError("رقم الهاتف يجب أن يكون 10 خانات ويبدأ بـ 09");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            ShowError("كلمة المرور مطلوبة");
+            return;
+        }
+
+        if (password.Length < 6)
+        {
+            ShowError("كلمة المرور 6 خانات على الأقل");
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            ShowError("تأكيد كلمة المرور غير مطابق");
+            return;
+        }
+
+        isLoading = true;
+
+        try
+        {
+            if (await AdminService.UsernameExists(username))
+            {
+                ShowError("اسم المستخدم مستخدم مسبقاً");
+                return;
+            }
+
+            if (await AdminService.PhoneExists(phone))
+            {
+                ShowError("رقم الهاتف مستخدم مسبقاً");
+                return;
+            }
+
+            var model = new SultanCups.Models.Admain
+            {
+                full_name = fullName,
+                username = username,
+                phone = phone,
+                role = role,
+                password_hash = BCrypt.HashPassword(password),
+                is_active = false,
+                created_at = DateTime.UtcNow
+            };
+
+            await AdminService.CreateAdmin(model);
+
+            fullName = "";
+            username = "";
+            phone = "";
+            password = "";
+            confirmPassword = "";
+            role = "Admin2";
+
+            ShowSuccess("تم إنشاء الحساب بنجاح، بانتظار تفعيل مسؤول أول للحساب.");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.InnerException?.Message ?? ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    void ShowSuccess(string text)
+    {
+        dialogMessage = text;
+        dialogType = "success";
+        dialogIcon = "✔";
+        showDialog = true;
+        goToLoginAfterClose = true;
+    }
+
+    void ShowError(string text)
+    {
+        dialogMessage = text;
+        dialogType = "error";
+        dialogIcon = "✖";
+        showDialog = true;
+        isLoading = false;
+    }
+
+    void CloseDialog()
+    {
+        showDialog = false;
+
+        if (goToLoginAfterClose)
+        {
+            goToLoginAfterClose = false;
+            Nav.NavigateTo("/", true);
+        }
+    }
+}

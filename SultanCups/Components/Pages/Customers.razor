@@ -1,0 +1,470 @@
+﻿@page "/customers"
+@using SultanCups.Models
+@using SultanCups.Services
+@layout Layout.MainLayout
+@inject SalesService SalesService
+@inject ToastService ToastService
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="mk-page">
+
+    <div class="pro-topbar">
+        <button class="mk-add-btn" @onclick="OpenAddDialog">إضافة زبون</button>
+
+        <h2 class="mk-title-center">الزبائن</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+    <div class="mk-search-bar">
+        <input class="mk-search-input"
+               placeholder="ابحث باسم الزبون أو رقم الهاتف"
+               @bind="SearchText"
+               @bind:event="oninput" />
+
+        <select class="mk-filter-select" @bind="StatusFilter">
+            <option value="all">الكل</option>
+            <option value="active">النشط</option>
+            <option value="inactive">المعطل</option>
+        </select>
+    </div>
+
+    <div class="inv-card">
+        <div class="mk-table-wrap">
+            <table class="st-main-table">
+                <thead>
+                    <tr class="st-row-item">
+                        <th>الاسم</th>
+                        <th>الهاتف</th>
+                        <th>العنوان</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (CustomersList == null)
+                    {
+                        <tr><td colspan="5">جاري التحميل...</td></tr>
+                    }
+                    else if (CustomersList.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="st-empty-text">
+                                <div class="empty-state">
+                                    <img src="images/Empty.jpg" class="empty-img" />
+                                    <span>لا توجد بيانات</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var c in FilteredCustomers)
+                        {
+                            <tr class="st-row-item">
+                                <td>@c.name</td>
+                                <td>@c.phone</td>
+                                <td>@c.address</td>
+                                <td>
+                                    @if (c.is_active)
+                                    {
+                                        <span class="badge-active">نشط</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-inactive">موقف</span>
+                                    }
+                                </td>
+                                <td class="mk-actions">
+                                    <button type="button" class="inv-small inv-edit" @onclick="() => OpenEditDialog(c)">تعديل</button>
+                                    <button type="button" class="inv-small inv-del" @onclick="() => OpenDeleteDialog(c)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowAddDialog || ShowEditDialog)
+{
+    <div class="inv-dialog-overlay">
+        <div class="inv-dialog-box">
+            <div class="inv-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+            <div class="inv-dialog-body">
+
+                <h3>@(ShowAddDialog ? "إضافة زبون" : "تعديل زبون")</h3>
+
+                <div class="inv-fields-grid">
+                
+
+                <div class="inv-field">
+                        <label class="inv-label">الاسم</label>
+                        <input class="inv-input-dialog @(string.IsNullOrEmpty(Message) ? "" : "is-invalid")"
+                               @bind="CustomerForm.name"
+                               @oninput="@((e) => { Message = ""; ShowActivatePrompt = false; CustomerForm.name = e.Value?.ToString(); })" />
+
+                    @if (!string.IsNullOrEmpty(Message))
+                    {
+                        <div class="restore-box">
+                            <div class="restore-text">@Message</div>
+
+                            @if (ShowActivatePrompt)
+                            {
+                                <button type="button"
+                                        class="restore-btn"
+                                        @onclick="ActivateExisting">
+                                    تنشيط الزبون الآن؟
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    </div>
+
+                    <div class="inv-field">
+                        <label class="inv-label">الهاتف</label>
+                        <input maxlength="10"
+                               class="inv-input-dialog @(string.IsNullOrEmpty(PhoneError) ? "" : "is-invalid")"
+                               @bind="CustomerForm.phone"
+                               @oninput="@((e) => { PhoneError = ""; CustomerForm.phone = e.Value?.ToString(); })" />
+
+                        @if (!string.IsNullOrEmpty(PhoneError))
+                        {
+                            <div class="pro-error-text">@PhoneError</div>
+                        }
+                    </div>
+
+                    <div class="inv-field">
+                        <label class="inv-label">العنوان</label>
+                        <input maxlength="100"
+                               class="inv-input-dialog @(string.IsNullOrEmpty(AddressError) ? "" : "is-invalid")"
+                               @bind="CustomerForm.address"
+                               @oninput="@((e) => { AddressError = ""; CustomerForm.address = e.Value?.ToString(); })" />
+
+                        @if (!string.IsNullOrEmpty(AddressError))
+                        {
+                            <div class="pro-error-text">@AddressError</div>
+                        }
+                    </div>
+
+                    @if (ShowEditDialog)
+                    {
+                        <div class="inv-field full-width">
+                            <label class="inv-label">الحالة</label>
+                            <div class="status-toggle-container">
+                                <button type="button"
+                                        class="status-btn btn-active @(CustomerForm.is_active ? "selected" : "")"
+                                        @onclick="() => CustomerForm.is_active = true">
+                                    نشط
+                                </button>
+
+                                <button type="button"
+                                        class="status-btn btn-inactive @(!CustomerForm.is_active ? "selected" : "")"
+                                        @onclick="() => CustomerForm.is_active = false">
+                                    معطل
+                                </button>
+                            </div>
+                        </div>
+                    }
+
+                </div>
+
+                <div class="inv-dialog-actions">
+                    <button type="button" class="inv-save" @onclick="SaveCustomer">حفظ</button>
+                    <button type="button" class="inv-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="inv-dialog-overlay">
+        <div class="inv-dialog-box inv-delete-dialog-box">
+
+            <div class="inv-dialog-top-image inv-delete-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="inv-dialog-body inv-delete-dialog-body">
+
+                <div class="inv-delete-icon-wrap">
+                    <div class="inv-delete-icon">!</div>
+                </div>
+
+                <h3 class="inv-delete-title">تأكيد الحذف</h3>
+                <p class="inv-delete-text">
+                    هل تريد حذف الزبون "@CustomerForm.name"؟
+                    <br />
+                    <span style="color:#64748b;font-size:13px;">
+                        ملاحظة: إذا كان مرتبط بسجلات سيتم تعطيله بدل حذفه
+                    </span>
+                </p>
+
+                <div class="inv-dialog-actions">
+                    <button type="button" class="inv-delete-confirm" @onclick="ConfirmDelete">حذف الآن</button>
+                    <button type="button" class="inv-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+@code {
+
+    List<Customer>? CustomersList;
+
+    bool ShowAddDialog, ShowEditDialog, ShowDeleteDialog;
+
+    string SearchText = "";
+    string StatusFilter = "all";
+
+    string Message = "";
+    bool ShowActivatePrompt = false;
+    Customer? DuplicateCustomer;
+
+    bool IsExporting = false;
+
+    string PhoneError = "";
+    string AddressError = "";
+
+    Customer CustomerForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        CustomersList = await SalesService.GetCustomers();
+    }
+
+    void OpenAddDialog()
+    {
+        CloseDialogs();
+        CustomerForm = new();
+        ShowAddDialog = true;
+    }
+
+    void OpenEditDialog(Customer c)
+    {
+        CloseDialogs();
+        CustomerForm = new Customer
+        {
+            customer_id = c.customer_id,
+            name = c.name,
+            phone = c.phone,
+            address = c.address,
+            is_active = c.is_active
+        };
+        ShowEditDialog = true;
+    }
+
+    void OpenDeleteDialog(Customer c)
+    {
+        CustomerForm = c;
+        ShowDeleteDialog = true;
+    }
+
+    async Task SaveCustomer()
+    {
+        var name = CustomerForm.name?.Trim();
+
+        Message = "";
+        PhoneError = "";
+        AddressError = "";
+        ShowActivatePrompt = false;
+
+        bool hasError = false;
+
+        // الاسم
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Message = "اسم الزبون مطلوب";
+            return;
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[\u0600-\u06FFa-zA-Z\s]+$"))
+        {
+            Message = "الاسم يجب أن يكون نص فقط";
+            return;
+        }
+
+        var all = await SalesService.GetCustomers();
+
+        DuplicateCustomer = all.FirstOrDefault(c =>
+            c.name != null &&
+            c.name.Trim().ToLower() == name.ToLower() &&
+            (ShowAddDialog || c.customer_id != CustomerForm.customer_id));
+
+        if (DuplicateCustomer != null)
+        {
+            if (DuplicateCustomer.is_active)
+            {
+                Message = "هذا الزبون موجود مسبقاً";
+                return;
+            }
+            else
+            {
+                Message = "الزبون موجود في الأرشيف";
+                ShowActivatePrompt = true;
+                return;
+            }
+        }
+
+        // الهاتف
+        if (string.IsNullOrWhiteSpace(CustomerForm.phone))
+        {
+            PhoneError = "رقم الهاتف مطلوب";
+            hasError = true;
+        }
+        else if (!System.Text.RegularExpressions.Regex.IsMatch(CustomerForm.phone, @"^09\d{8}$"))
+        {
+            PhoneError = "رقم الهاتف يجب أن يبدأ بـ 09 ويتكون من 10 أرقام";
+            hasError = true;
+        }
+
+        // العنوان
+        if (string.IsNullOrWhiteSpace(CustomerForm.address))
+        {
+            AddressError = "العنوان مطلوب";
+            hasError = true;
+        }
+        else if (System.Text.RegularExpressions.Regex.IsMatch(CustomerForm.address, @"^\d+$"))
+        {
+            AddressError = "العنوان لا يمكن أن يكون أرقام فقط";
+            hasError = true;
+        }
+
+        if (hasError)
+            return;
+
+        if (ShowAddDialog)
+            await SalesService.AddCustomer(CustomerForm);
+        else
+            await SalesService.UpdateCustomer(CustomerForm);
+
+        CustomersList = await SalesService.GetCustomers();
+        CloseDialogs();
+    }
+
+    async Task ActivateExisting()
+    {
+        if (DuplicateCustomer != null)
+        {
+            DuplicateCustomer.is_active = true;
+            await SalesService.UpdateCustomer(DuplicateCustomer);
+
+            CustomersList = await SalesService.GetCustomers();
+            CloseDialogs();
+        }
+    }
+
+    async Task ConfirmDelete()
+    {
+        var result = await SalesService.DeleteOrDisableCustomer(CustomerForm.customer_id);
+
+        if (result == "deleted")
+            ToastService.ShowToast("تم حذف الزبون نهائياً", "success");
+        else if (result == "disabled")
+            ToastService.ShowToast("تم تعطيل الزبون لأنه مرتبط بطلبيات", "warning");
+        else
+            ToastService.ShowToast("الزبون غير موجود", "error");
+
+        CustomersList = await SalesService.GetCustomers();
+        CloseDialogs();
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting) return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("الزبائن");
+
+            ws.Cell(1, 1).Value = "رقم";
+            ws.Cell(1, 2).Value = "الاسم";
+            ws.Cell(1, 3).Value = "الهاتف";
+            ws.Cell(1, 4).Value = "العنوان";
+            ws.Cell(1, 5).Value = "الحالة";
+
+            int row = 2;
+
+            foreach (var c in FilteredCustomers)
+            {
+                ws.Cell(row, 1).Value = c.customer_id;
+                ws.Cell(row, 2).Value = c.name;
+                ws.Cell(row, 3).Value = c.phone;
+                ws.Cell(row, 4).Value = c.address;
+                ws.Cell(row, 5).Value = c.is_active ? "نشط" : "معطل";
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Customers_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void CloseDialogs()
+    {
+        ShowAddDialog = ShowEditDialog = ShowDeleteDialog = false;
+        Message = "";
+        PhoneError = "";
+        AddressError = "";
+        ShowActivatePrompt = false;
+        DuplicateCustomer = null;
+        CustomerForm = new();
+    }
+
+    IEnumerable<Customer> FilteredCustomers =>
+        (CustomersList ?? new List<Customer>())
+        .Where(c =>
+            (string.IsNullOrWhiteSpace(SearchText) ||
+             (c.name != null && c.name.Contains(SearchText)) ||
+             (c.phone != null && c.phone.Contains(SearchText)))
+            &&
+            (StatusFilter == "all" ||
+             (StatusFilter == "active" && c.is_active) ||
+             (StatusFilter == "inactive" && !c.is_active))
+        );
+}

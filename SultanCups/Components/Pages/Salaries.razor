@@ -1,0 +1,954 @@
+﻿@page "/Salaries"
+@using SultanCups.Models
+@layout Layout.MainLayout
+@inject NavigationManager Nav
+@inject SultanCups.Services.FinanceService FinanceService
+@inject SultanCups.Services.ToastService ToastService
+@inject SultanCups.Services.UserSession Session
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+
+<div class="pro-page">
+
+    
+    <div class="pro-topbar">
+
+        <button class="pro-btn-add" @onclick="OpenAddDialog">
+            إضافة راتب
+        </button>
+
+        <h2 class="pro-title">الرواتب</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+
+        <div></div>
+
+    </div>
+
+    <div class="pro-card">
+        <div class="pro-table-wrap">
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>الموظف</th>
+                        <th>النوع</th>
+                        <th>المستحق</th>
+                        <th>المدفوع</th>
+                        <th>المتبقي</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                        <th>الخزنة</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Salarie == null)
+                    {
+                        <tr>
+                            <td colspan="9" class="pro-empty">
+                                جاري التحميل...
+                            </td>
+                        </tr>
+                    }
+                    else if (Salarie.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="9" class="st-empty-text">
+                                <div class="empty-state">
+
+                                    <img src="images/Empty.jpg" class="empty-img" />
+
+                                    <span>لا توجد بيانات</span>
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var s in Salarie)
+                        {
+                            <tr>
+                                <td>@s.Employee.full_name</td>
+
+                                <td>@s.salary_type</td>
+
+                                <td class="pro-money">
+                                    @s.amount.ToString("0.00") د.ل
+                                </td>
+
+                                <td class="pro-money">
+                                    @s.paid_amount.ToString("0.00") د.ل
+                                </td>
+
+                                <td class="pro-money">
+                                    @s.Remaining.ToString("0.00") د.ل
+                                </td>
+
+                                <td>
+                                    <span class="emp-badge @(s.status == "خالص" ? "emp-on" : "emp-off")">
+                                        @s.status
+                                    </span>
+                                </td>
+
+                                <td class="mg-date-cell">
+                                    <span class="mg-date">
+                                        @s.salary_date.ToLocalTime().ToString("yyyy-MM-dd")
+                                    </span>
+                                </td>
+                                <td>@s.CashBox.name</td>
+
+                                <td class="emp-actions">
+
+                                    <button class="emp-edit"
+                                            @onclick="() => OpenAddPaymentDialog(s)">
+                                         إضافة دفعة
+                                    </button>
+
+                                    <button class="emp-edit"
+                                            @onclick="() => OpenReverseDialog(s)">
+                                         إلغاء دفعة
+                                    </button>
+
+                                    <button class="emp-edit"
+                                            @onclick="() => OpenEditDialog(s)">
+                                        تعديل
+                                    </button>
+
+                                    <button class="emp-delete"
+                                            @onclick="() => OpenDeleteDialog(s)">
+                                        حذف
+                                    </button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                </td>
+                            </tr>
+                        }
+                    }
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- إضافة راتب -->
+@if (ShowAddDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <div class="money-head">
+                    <h3>إضافة راتب</h3>
+                    <img src="images/Money.jpg" />
+                </div>
+
+                <div class="pro-fields-grid">
+
+                    <div class="pro-field">
+                        <label class="pro-label">نوع الراتب</label>
+
+                        <select class="pro-input"
+                                value="@SalaryForm.salary_type"
+                                @onchange="@(e => SalaryForm.salary_type = e.Value?.ToString())">
+
+                            <option value="راتب أساسي">راتب أساسي</option>
+                            <option value="طلعة">طلعة</option>
+                        </select>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">الموظف</label>
+
+                        <select @bind="SelectedEmployeeId" class="pro-input">
+                            <option value="0">اختر الموظف</option>
+                            @foreach (var e in Employees)
+                            {
+                                <option value="@e.employee_id">@e.full_name</option>
+                            }
+                        </select>
+
+                        @if (!string.IsNullOrWhiteSpace(EmployeeError))
+                        {
+                            <div class="pro-error-text">@EmployeeError</div>
+                        }
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">المبلغ المستحق</label>
+                        <input class="pro-input"
+                               @bind-value="SalaryForm.amount"
+                               @bind-value:event="oninput" />
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">المدفوع</label>
+                        <input class="pro-input"
+                               @bind-value="SalaryForm.paid_amount"
+                               @bind-value:event="oninput" />
+
+                        @if (!string.IsNullOrWhiteSpace(PaidError))
+                        {
+                            <div class="pro-error-text">@PaidError</div>
+                        }
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">المتبقي</label>
+                        <input class="pro-input"
+                               value="@GetRemaining()"
+                               disabled />
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">الحالة</label>
+                        <input class="pro-input"
+                               value="@GetStatus()"
+                               disabled />
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">الخزنة</label>
+                        <select @bind="selectedCashBoxId" class="pro-input">
+                            <option value="0">اختر الخزنة</option>
+                            @foreach (var c in CashBoxes)
+                            {
+                                <option value="@c.cash_box_id">@c.name</option>
+                            }
+                        </select>
+
+                        @if (!string.IsNullOrWhiteSpace(CashBoxError))
+                        {
+                            <div class="pro-error-text">@CashBoxError</div>
+                        }
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">التاريخ</label>
+                        <input type="date"
+                               class="pro-input"
+                               @bind="SalaryForm.salary_date" />
+                    </div>
+
+                    <div class="pro-field" style="grid-column: span 2;">
+                        <label class="pro-label">ملاحظة</label>
+                        <input class="pro-input"
+                               @bind="SalaryForm.notes" />
+                    </div>
+
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save"
+                            @onclick="SaveSalary">
+                        حفظ
+                    </button>
+
+                    <button class="pro-cancel"
+                            @onclick="CloseDialogs">
+                        إلغاء
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowEditDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <h3>تعديل الراتب</h3>
+
+                <div class="pro-fields-grid">
+
+                    <div class="pro-field">
+                        <label class="pro-label">نوع الراتب</label>
+
+                        <select class="pro-input"
+                                value="@SalaryForm.salary_type"
+                                @onchange="@(e => SalaryForm.salary_type = e.Value?.ToString() ?? "")">
+
+                            <option value="راتب أساسي">راتب أساسي</option>
+                            <option value="طلعة">طلعة</option>
+                        </select>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">الموظف</label>
+                        <select @bind="SelectedEmployeeId" class="pro-input">
+                            @foreach (var e in Employees)
+                            {
+                                <option value="@e.employee_id">@e.full_name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">المبلغ المستحق</label>
+                        <input class="pro-input"
+                               @bind="SalaryForm.amount" />
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">الخزنة</label>
+
+                        <select class="pro-input"
+                                value="@selectedCashBoxId"
+                                @onchange="@(e => selectedCashBoxId = int.Parse(e.Value!.ToString()!))">
+
+                            @foreach (var c in CashBoxes)
+                            {
+                                <option value="@c.cash_box_id">@c.name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">الحالة</label>
+                        <input class="pro-input"
+                               value="@SalaryForm.status"
+                               disabled />
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label">التاريخ</label>
+                        <input type="date"
+                               class="pro-input"
+                               @bind="SalaryForm.salary_date" />
+                    </div>
+
+                    <div class="pro-field" style="grid-column: span 2;">
+                        <label class="pro-label">ملاحظة</label>
+                        <input class="pro-input"
+                               @bind="SalaryForm.notes" />
+                    </div>
+
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save"
+                            @onclick="UpdateSalaryAction">
+                        حفظ
+                    </button>
+
+                    <button class="pro-cancel"
+                            @onclick="CloseDialogs">
+                        إلغاء
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+<!-- إضافة دفعة -->
+@if (ShowAddPaymentDialog)
+{
+    <div class="pro-dialog-overlay">
+
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+               
+                <div class="money-head">
+                    
+                    <h3>إضافة دفعة</h3>
+                    <img src="images/Money.jpg" />
+                </div>
+
+                <p class="money-note">
+                    سيتم خصم المبلغ من خزنة:
+                    @CashBoxes.FirstOrDefault(x => x.cash_box_id == SalaryForm.cash_box_id)?.name
+                </p>
+
+                <div class="pro-field">
+                    <label class="pro-label">المبلغ</label>
+
+                    <input class="pro-input"
+                           type="number"
+                           step="0.01"
+                           @bind-value="PaymentAmount"
+                           @bind-value:event="oninput" />
+
+                    @if (!string.IsNullOrWhiteSpace(PaymentError))
+                    {
+                        <div class="pro-error-text">@PaymentError</div>
+                    }
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="AddPaymentAction">حفظ</button>
+                    <button class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+<!-- إلغاء دفعة -->
+@if (ShowReverseDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+
+                <div class="pro-dialog-top-image">
+                    <img src="images/Background.png" />
+                </div>
+
+            <div class="pro-dialog-body">
+
+                <div class="money-head">
+                    
+                    <h3>إلغاء دفعة</h3>
+                    <img src="images/Money.jpg" />
+                </div>
+
+                <p class="money-note">
+                    سيتم إرجاع المبلغ إلى خزنة:
+                    @CashBoxes.FirstOrDefault(x => x.cash_box_id == SalaryForm.cash_box_id)?.name
+                </p>
+
+                <div class="pro-field">
+                    <label class="pro-label">المبلغ</label>
+
+                    <input class="pro-input"
+                           type="number"
+                           step="0.01"
+                           @bind-value="PaymentAmount"
+                           @bind-value:event="oninput" />
+
+                    @if (!string.IsNullOrWhiteSpace(PaymentError))
+                    {
+                        <div class="pro-error-text">@PaymentError</div>
+                    }
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="ReversePaymentAction">حفظ</button>
+                    <button class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="pro-dialog-overlay">
+
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <div class="pro-delete-icon">!</div>
+
+                <h3 class="pro-delete-title money-head">
+                    تأكيد الحذف
+                    <img src="images/Money.jpg" />
+                </h3>
+
+                <p class="pro-delete-text text-center-delete money-note">
+                    سيتم حذف الراتب وإرجاع المدفوع إلى خزنة:
+                    @CashBoxes.FirstOrDefault(x => x.cash_box_id == SalaryForm.cash_box_id)?.name
+                </p>
+
+                <div class="pro-dialog-actions">
+
+                    <button class="pro-delete-confirm"
+                            @onclick="DeleteSalaryAction">
+                        حذف
+                    </button>
+
+                    <button class="pro-cancel"
+                            @onclick="CloseDialogs">
+                        إلغاء
+                    </button>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+@code {
+
+    List<Salary>? Salarie;
+    List<Employee> Employees = new();
+    List<CashBox> CashBoxes = new();
+
+    int selectedCashBoxId;
+    bool ShowAddDialog;
+    bool ShowEditDialog;
+    bool ShowAddPaymentDialog;
+    bool ShowReverseDialog;
+    bool ShowDeleteDialog;
+    bool IsEditMode = false;
+    int DeleteSalaryId;
+
+    bool IsExporting = false;
+
+    string EmployeeError = "";
+    string CashBoxError = "";
+    string PaidError = "";
+
+    string PaymentError = "";
+
+    decimal PaymentAmount;
+
+    Salary SalaryForm = new();
+
+    int _selectedEmployeeId;
+    int SelectedEmployeeId
+    {
+        get => _selectedEmployeeId;
+        set
+        {
+            _selectedEmployeeId = value;
+
+            // 🔥 لا تعدل amount أثناء التعديل
+            if (IsEditMode) return;
+
+            var emp = Employees.FirstOrDefault(x => x.employee_id == value);
+            if (emp != null)
+            {
+                SalaryForm.amount = emp.base_salary;
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsLoggedIn)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        Salarie = await FinanceService.GetSalaries();
+        Employees = await FinanceService.GetActiveEmployees();
+        CashBoxes = await FinanceService.GetActiveCashBoxes();
+    }
+
+    void OpenAddDialog()
+    {
+
+        EmployeeError = "";
+        CashBoxError = "";
+        PaidError = "";
+        IsEditMode = false;
+
+        SalaryForm = new Salary
+        {
+            salary_type = "راتب أساسي",
+            salary_date = DateTime.UtcNow,
+            paid_amount = 0
+        };
+
+        SelectedEmployeeId = 0;
+        selectedCashBoxId = 0;
+
+        ShowAddDialog = true;
+    }
+
+    void OpenDeleteDialog(Salary s)
+    {
+        DeleteSalaryId = s.salary_id;
+        ShowDeleteDialog = true;
+    }
+
+    async Task SaveSalary()
+    {
+        try
+        {
+            EmployeeError = "";
+            CashBoxError = "";
+            PaidError = "";
+
+            bool hasError = false;
+
+            if (SelectedEmployeeId == 0)
+            {
+                EmployeeError = "اختر الموظف";
+                hasError = true;
+            }
+
+            if (selectedCashBoxId == 0)
+            {
+                CashBoxError = "اختر الخزنة";
+                hasError = true;
+            }
+
+            if (SalaryForm.amount <= 0)
+            {
+                PaidError = "المبلغ المستحق يجب أن يكون أكبر من 0";
+                hasError = true;
+            }
+
+            if (SalaryForm.paid_amount <= 0)
+            {
+                PaidError = "أدخل قيمة أكبر من 0";
+                hasError = true;
+            }
+            else if (SalaryForm.paid_amount > SalaryForm.amount)
+            {
+                PaidError = "المدفوع لا يمكن أن يكون أكبر من المستحق";
+                hasError = true;
+            }
+
+            if (hasError)
+                return;
+
+            // 🔥 تنبيه إذا عنده سلفة
+            var loanRemaining =
+                await FinanceService.GetEmployeeLoanRemaining(SelectedEmployeeId);
+
+            if (loanRemaining > 0)
+            {
+                var ok = await JS.InvokeAsync<bool>(
+                    "confirm",
+                    $"تنبيه:\n\nهذا الموظف لديه سلفة متبقية بقيمة {loanRemaining:0.00} د.ل.\n\nهل تريد الاستمرار؟");
+
+                if (!ok)
+                    return;
+            }
+
+            SalaryForm.employee_id = SelectedEmployeeId;
+            SalaryForm.cash_box_id = selectedCashBoxId;
+
+            SalaryForm.salary_date = DateTime.SpecifyKind(
+                SalaryForm.salary_date,
+                DateTimeKind.Utc);
+
+            await FinanceService.AddSalary(SalaryForm, Session.AdminId);
+
+            Salarie = await FinanceService.GetSalaries();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تم إضافة الراتب بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowToast(ex.Message, "error");
+        }
+    }
+
+    void OpenEditDialog(Salary s)
+    {
+        IsEditMode = true;
+
+        SalaryForm = new Salary
+        {
+            salary_id = s.salary_id,
+            employee_id = s.employee_id,
+            salary_type = s.salary_type?.Trim(),
+            amount = s.amount,
+            paid_amount = s.paid_amount,
+            salary_date = s.salary_date,
+            cash_box_id = s.cash_box_id,
+            notes = s.notes,
+            status = s.status
+        };
+
+        SelectedEmployeeId = s.employee_id;
+        selectedCashBoxId = s.cash_box_id;
+
+        ShowEditDialog = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    async Task UpdateSalaryAction()
+    {
+        try
+        {
+            if (SelectedEmployeeId == 0)
+            {
+                ToastService.ShowToast("اختر الموظف", "error");
+                return;
+            }
+
+            if (SalaryForm.amount <= 0)
+            {
+                ToastService.ShowToast("المبلغ المستحق غير صحيح", "error");
+                return;
+            }
+
+            SalaryForm.employee_id = SelectedEmployeeId;
+            SalaryForm.cash_box_id = selectedCashBoxId;
+
+            await FinanceService.UpdateSalary(SalaryForm, Session.AdminId);
+
+            Salarie = await FinanceService.GetSalaries();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تم تعديل الراتب بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowToast(ex.Message, "error");
+        }
+    }
+
+    void OpenAddPaymentDialog(Salary s)
+    {
+        SalaryForm = s;
+        PaymentAmount = 0;
+        ShowAddPaymentDialog = true;
+    }
+
+    decimal GetRemaining()
+    {
+        return SalaryForm.amount - SalaryForm.paid_amount;
+    }
+
+    string GetStatus()
+    {
+        if (SalaryForm.paid_amount <= 0)
+            return "غير خالص";
+
+        if (SalaryForm.paid_amount >= SalaryForm.amount)
+            return "خالص";
+
+        return "جزئي";
+    }
+
+    async Task AddPaymentAction()
+    {
+        PaymentError = "";
+
+        if (PaymentAmount <= 0)
+        {
+            PaymentError = "أدخل قيمة أكبر من 0";
+            return;
+        }
+
+        if (PaymentAmount > SalaryForm.Remaining)
+        {
+            PaymentError = "لا يمكن إضافة مبلغ أكبر من المتبقي";
+            return;
+        }
+
+        try
+        {
+            var ok = await FinanceService.AddSalaryPayment(
+                SalaryForm.salary_id,
+                PaymentAmount,
+                Session.AdminId);
+
+            if (!ok)
+            {
+                PaymentError = "تعذر إضافة الدفعة: تحقق من رصيد الخزنة أو قيمة المبلغ";
+                return;
+            }
+
+            Salarie = await FinanceService.GetSalaries();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تمت إضافة الدفعة بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowToast(
+                ex.InnerException?.Message ?? ex.Message,
+                "error");
+        }
+    }
+
+    void OpenReverseDialog(Salary s)
+    {
+        SalaryForm = s;
+        PaymentAmount = 0;
+        ShowReverseDialog = true;
+    }
+
+    async Task ReversePaymentAction()
+    {
+        PaymentError = "";
+
+        if (PaymentAmount <= 0)
+        {
+            PaymentError = "أدخل قيمة أكبر من 0";
+            return;
+        }
+
+        if (PaymentAmount > SalaryForm.paid_amount)
+        {
+            PaymentError = "لا يمكن استرجاع مبلغ أكبر من المدفوع";
+            return;
+        }
+
+        try
+        {
+            await FinanceService.ReverseSalary(
+                SalaryForm.salary_id,
+                PaymentAmount,
+                Session.AdminId);
+
+            Salarie = await FinanceService.GetSalaries();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تم استرجاع الدفعة بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            PaymentError = ex.Message;
+        }
+    }
+
+    async Task DeleteSalaryAction()
+    {
+        try
+        {
+            await FinanceService.DeleteSalary(DeleteSalaryId, Session.AdminId);
+
+            Salarie = await FinanceService.GetSalaries();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تم حذف الراتب بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.InnerException?.Message ?? ex.Message;
+
+            ToastService.ShowToast(msg, "error");
+        }
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting)
+            return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+
+            var ws = workbook.Worksheets.Add("الرواتب");
+
+            ws.Cell(1, 1).Value = "رقم الراتب";
+            ws.Cell(1, 2).Value = "الموظف";
+            ws.Cell(1, 3).Value = "النوع";
+            ws.Cell(1, 4).Value = "المستحق";
+            ws.Cell(1, 5).Value = "المدفوع";
+            ws.Cell(1, 6).Value = "المتبقي";
+            ws.Cell(1, 7).Value = "الحالة";
+            ws.Cell(1, 8).Value = "التاريخ";
+            ws.Cell(1, 9).Value = "الخزنة";
+            ws.Cell(1, 10).Value = "ملاحظات";
+
+            int row = 2;
+
+            foreach (var s in Salarie ?? new())
+            {
+                ws.Cell(row, 1).Value = s.salary_id;
+                ws.Cell(row, 2).Value = s.Employee?.full_name;
+                ws.Cell(row, 3).Value = s.salary_type;
+                ws.Cell(row, 4).Value = s.amount;
+                ws.Cell(row, 5).Value = s.paid_amount;
+                ws.Cell(row, 6).Value = decimal.Round(s.amount - s.paid_amount, 2);
+                ws.Cell(row, 7).Value = s.status;
+                ws.Cell(row, 8).Value = s.salary_date.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+                ws.Cell(row, 9).Value = s.CashBox?.name;
+                ws.Cell(row, 10).Value = s.notes;
+
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Salaries_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void CloseDialogs()
+    {
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowAddPaymentDialog = false;
+        ShowReverseDialog = false;
+        ShowDeleteDialog = false;
+
+        PaymentError = "";
+        PaymentAmount = 0;
+    }
+}

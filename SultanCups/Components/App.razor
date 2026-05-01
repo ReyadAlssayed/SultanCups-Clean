@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+
+    
+
+    <link rel="preload" href="images/Background.png" as="image">
+    <link rel="preload" href="images/Modren.png" as="image">
+
+    <link rel="stylesheet" href="@Assets["css/Employees.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["css/auth.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Home.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Settings.css"]" />
+    <link rel="stylesheet" href="@Assets["SultanCups.styles.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Admins.css"]" />
+   
+    <link rel="stylesheet" href="@Assets["css/Salaries.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Marketers.css"]" />
+    <link rel="stylesheet" href="@Assets["css/RawMaterials.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Orders.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Sales-payments.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Debts.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Production.css"]" />
+    <link rel="stylesheet" href="@Assets["css/OtherExpenses.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Returns.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Backup.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Stats.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Suppliers.css"]" />
+    <link rel="stylesheet" href="@Assets["css/finance.css"]" />
+    <link rel="stylesheet" href="@Assets["css/Purchases.css"]" />
+    <link rel="stylesheet" href="@Assets["css/AddOrder.css"]" />
+
+
+
+    <ImportMap />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+
+    <script>
+        let timer;
+        function resetTimer(helper) {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+        helper.invokeMethodAsync('Logout');
+        }, 300000); // 5 دقائق
+        }
+
+        window.initIdleTimer = (helper) => {
+        const events = ['mousedown', 'mousemove', 'keypress', 'touchstart'];
+        events.forEach(e => document.addEventListener(e, () => resetTimer(helper)));
+        resetTimer(helper);
+
+
+
+        };
+    </script>
+
+    <script src="js/site.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,743 @@
+﻿@page "/CashBoxes"
+@using SultanCups.Models
+@using SultanCups.Services
+@layout Layout.MainLayout
+@inject NavigationManager Nav
+@inject FinanceService FinanceService
+@inject ToastService ToastService
+@inject SultanCups.Services.UserSession Session
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="pro-page">
+
+    <div class="pro-topbar">
+        <button type="button" class="pro-btn-add" @onclick="OpenAddDialog">إضافة خزنة</button>
+
+    
+        <h2 class="pro-title">الخزنات</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+    <div class="emp-search-bar">
+
+        <button type="button"
+                class="pro-btn-add"
+                @onclick="OpenDepositDialog">
+            إيداع
+        </button>
+
+        <button type="button"
+                class="pro-btn-add"
+                @onclick="OpenTransferDialog">
+            تحويل
+        </button>
+
+        <select class="emp-filter-select" @bind="CashBoxStatusFilter">
+            <option value="active">النشطة</option>
+            <option value="all">الكل</option>
+            <option value="inactive">غير النشطة</option>
+        </select>
+
+    </div>
+
+    <div class="pro-card">
+        <div class="pro-table-wrap">
+
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>اسم الخزنة</th>
+                        <th>الرصيد</th>
+                        <th>الحالة</th>
+                        <th style="text-align:center">الإجراءات</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var c in FilteredCashBoxes)
+                    {
+                        <tr>
+                            <td class="cb-name">@c.name</td>
+
+                            <td class="cb-money">
+                                @GetBalance(c.cash_box_id).ToString("0.00") د.ل
+                            </td>
+
+                            <td class="cb-status">
+                                <span class="@(@c.is_active ? "cb-active" : "cb-inactive")">
+                                    @(@c.is_active ? "نشطة" : "غير نشطة")
+                                </span>
+                            </td>
+
+                            <td style="text-align:center;">
+                                <button type="button" class="inv-small inv-edit" @onclick="() => OpenEditDialog(c)">تعديل</button>
+                                <button type="button"
+                                        class="inv-small inv-del"
+                                        @onclick="() => OpenDeleteDialog(c)">
+                                    @(c.is_active ? "تعطيل" : "تنشيط")
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+@if (ShowAddDialog || ShowEditDialog)
+{
+    <div class="pro-dialog-overlay">
+
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <h3>@(ShowAddDialog ? "إضافة خزنة" : "تعديل الخزنة")</h3>
+
+                <div class="pro-field">
+                    <label class="pro-label">اسم الخزنة</label>
+
+                    <input class="pro-input @(string.IsNullOrEmpty(NameError) ? "" : "is-invalid")"
+                           @bind="Form.name"
+                           maxlength="50"
+                           @oninput="@((e) =>
+                                               {
+                                                   NameError = "";
+                                                   Message = "";
+                                                   ShowActivatePrompt = false;
+                                                   Form.name = e.Value?.ToString();
+                                               })" />
+
+                    @if (!string.IsNullOrEmpty(NameError))
+                    {
+                        <div class="pro-error-text">@NameError</div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(Message))
+                    {
+                        <div class="prod-alert-curtain">
+                            <div class="restore-box">
+                                <div class="restore-text">@Message</div>
+                            </div>
+
+                            @if (ShowActivatePrompt)
+                            {
+                                <button type="button"
+                                        class="pro-btn-add"
+                                        style="margin-top:10px"
+                                        @onclick="ActivateExisting">
+                                    تنشيط الخزنة المؤرشفة الآن؟
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (ShowEditDialog)
+                {
+                    <div class="pro-field" style="margin-top:15px;">
+                        <label class="pro-label">الحالة</label>
+
+                        <div class="cb-status-buttons">
+
+                            <button type="button"
+                                    class="cb-status-btn @(Form.is_active ? "cb-active-selected" : "")"
+                                    @onclick="() => Form.is_active = true">
+                                نشطة
+                            </button>
+
+                            <button type="button"
+                                    class="cb-status-btn @(!Form.is_active ? "cb-inactive-selected" : "")"
+                                    @onclick="() => Form.is_active = false">
+                                غير نشطة
+                            </button>
+
+                        </div>
+                    </div>
+                }
+
+                <div class="pro-dialog-actions">
+                    <button type="button" class="pro-save" @onclick="Save">حفظ</button>
+                    <button type="button" class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="pro-dialog-overlay">
+
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <div class="pro-delete-icon">!</div>
+
+                <h3 class="pro-delete-title">تأكيد إلغاء التنشيط</h3>
+
+                <p class="pro-delete-text text-center-delete">
+                    هل تريد إلغاء تنشيط هذه الخزنة؟
+                </p>
+
+                <div class="pro-dialog-actions">
+                    <button type="button"
+                            class="pro-delete-confirm"
+                            @onclick="() => Toggle(Form.cash_box_id)">
+                        تعطيل
+                    </button>
+
+                    <button type="button"
+                            class="pro-cancel"
+                            @onclick="CloseDialogs">
+                        إلغاء
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+@* =========================================
+   أضف هذه النوافذ قبل @code
+   ========================================= *@
+
+@if (ShowDepositDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <h3>إيداع في خزنة</h3>
+
+                <div class="pro-field">
+                    <label class="pro-label">الخزنة</label>
+
+                    <select class="pro-input" @bind="DepositCashBoxId">
+                        <option value="0">اختر الخزنة</option>
+
+                        @foreach (var c in CashBoxes)
+                        {
+                            <option value="@c.cash_box_id">@c.name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="pro-field">
+                    <label class="pro-label">المبلغ</label>
+
+                    <input class="pro-input @(string.IsNullOrEmpty(DepositAmountError) ? "" : "is-invalid")"
+                           @bind="DepositAmount"
+                           @oninput="@(e => DepositAmountError = "")" />
+
+                    @if (!string.IsNullOrEmpty(DepositAmountError))
+                    {
+                        <div class="pro-error-text">@DepositAmountError</div>
+                    }
+                </div>
+
+                <div class="pro-field">
+                    <label class="pro-label">ملاحظة</label>
+                    <input class="pro-input" @bind="DepositNote" />
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="SaveDeposit">حفظ</button>
+                    <button class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowTransferDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <h3>تحويل بين الخزنات</h3>
+
+                <div class="pro-field">
+                    <label class="pro-label">من خزنة</label>
+
+                    <select class="pro-input" @bind="FromCashBoxId">
+                        <option value="0">اختر الخزنة</option>
+
+                        @foreach (var c in CashBoxes)
+                        {
+                            <option value="@c.cash_box_id">@c.name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="pro-field">
+                    <label class="pro-label">إلى خزنة</label>
+
+                    <select class="pro-input" @bind="ToCashBoxId" @key="FromCashBoxId">
+                        <option value="0">اختر الخزنة</option>
+
+                        @foreach (var c in CashBoxes.Where(x => x.cash_box_id != FromCashBoxId))
+                        {
+                            <option value="@c.cash_box_id">@c.name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="pro-field">
+                    <label class="pro-label">المبلغ</label>
+
+                    <input class="pro-input @(string.IsNullOrEmpty(TransferAmountError) ? "" : "is-invalid")"
+                           @bind="TransferAmount"
+                           @oninput="@(e => TransferAmountError = "")" />
+
+                    @if (!string.IsNullOrEmpty(TransferAmountError))
+                    {
+                        <div class="pro-error-text">@TransferAmountError</div>
+                    }
+                </div>
+
+                <div class="pro-field">
+                    <label class="pro-label">ملاحظة</label>
+                    <input class="pro-input" @bind="TransferNote" />
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="SaveTransfer">حفظ</button>
+                    <button class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+
+    List<CashBox> CashBoxes = new();
+    List<CashBoxBalance> Balances = new();
+    CashBox Form = new();
+
+    string Message = "";
+    string NameError = "";
+    bool IsExporting = false;
+    string CashBoxStatusFilter = "active";
+
+    int adminId => Session.AdminId;
+
+    bool ShowActivatePrompt = false;
+    CashBox? DuplicateCashBox;
+
+    bool ShowAddDialog = false;
+    bool ShowEditDialog = false;
+    bool ShowDeleteDialog = false;
+
+    // =========================================
+    // أضف داخل @code
+    // =========================================
+
+    bool ShowDepositDialog;
+    bool ShowTransferDialog;
+
+    int DepositCashBoxId;
+    decimal DepositAmount;
+    string DepositNote = "";
+    string DepositAmountError = "";
+
+    int FromCashBoxId;
+    int ToCashBoxId;
+    decimal TransferAmount;
+    string TransferNote = "";
+    string TransferAmountError = "";
+
+    void OpenDepositDialog()
+    {
+        DepositCashBoxId = 0;
+        DepositAmount = 0;
+        DepositNote = "";
+        DepositAmountError = "";
+        ShowDepositDialog = true;
+    }
+
+    void OpenTransferDialog()
+    {
+        FromCashBoxId = 0;
+        ToCashBoxId = 0;
+        TransferAmount = 0;
+        TransferNote = "";
+        TransferAmountError = "";
+        ShowTransferDialog = true;
+    }
+
+    async Task SaveDeposit()
+    {
+        try
+        {
+            if (DepositCashBoxId <= 0)
+            {
+                ToastService.ShowToast("اختر الخزنة", "error");
+                return;
+            }
+
+            if (DepositAmount <= 0)
+            {
+                DepositAmountError = "أدخل مبلغًا صحيحًا أكبر من صفر للإيداع";
+                return;
+            }
+
+            await FinanceService.DepositCashBox(
+                DepositCashBoxId,
+                DepositAmount,
+                DepositNote,
+                adminId
+            );
+
+            CashBoxes = await FinanceService.GetCashBoxes();
+            await RefreshBalances();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تم الإيداع بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowToast(ex.InnerException?.Message ?? ex.Message, "error");
+        }
+    }
+
+    async Task SaveTransfer()
+    {
+        try
+        {
+            if (FromCashBoxId <= 0 || ToCashBoxId <= 0)
+            {
+                ToastService.ShowToast("اختر الخزنات", "error");
+                return;
+            }
+
+            if (FromCashBoxId == ToCashBoxId)
+            {
+                ToastService.ShowToast("لا يمكن التحويل لنفس الخزنة", "error");
+                return;
+            }
+
+            if (TransferAmount <= 0)
+            {
+                TransferAmountError = "أدخل مبلغًا صحيحًا أكبر من صفر للتحويل";
+                return;
+            }
+
+            await FinanceService.TransferBetweenCashBoxes(
+                FromCashBoxId,
+                ToCashBoxId,
+                TransferAmount,
+                TransferNote,
+                adminId
+            );
+
+            CashBoxes = await FinanceService.GetCashBoxes();
+            await RefreshBalances();
+
+            CloseDialogs();
+
+            ToastService.ShowToast("تم التحويل بنجاح", "success");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowToast(ex.Message, "error");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsLoggedIn)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        CashBoxes = await FinanceService.GetCashBoxes();
+        Balances = await FinanceService.GetCashBoxBalances();
+    }
+
+    void OpenAddDialog()
+    {
+        Form = new CashBox
+        {
+            cash_box_id = 0,
+            name = "",
+            is_active = true
+        };
+
+        Message = "";
+        NameError = "";
+        ShowActivatePrompt = false;
+        DuplicateCashBox = null;
+
+        ShowAddDialog = true;
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+    }
+
+    void OpenEditDialog(CashBox c)
+    {
+        Form = new CashBox
+        {
+            cash_box_id = c.cash_box_id,
+            name = c.name,
+            is_active = c.is_active
+        };
+
+        Message = "";
+        NameError = "";
+        ShowActivatePrompt = false;
+        DuplicateCashBox = null;
+
+        ShowAddDialog = false;
+        ShowEditDialog = true;
+        ShowDeleteDialog = false;
+    }
+
+    void OpenDeleteDialog(CashBox c)
+    {
+        Form = c;
+
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowDeleteDialog = true;
+    }
+
+    async Task Save()
+    {
+        Message = "";
+        ShowActivatePrompt = false;
+
+        var name = Form.name?.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            NameError = "اسم الخزنة مطلوب";
+            return;
+        }
+
+        if (name.Length < 3)
+        {
+            NameError = "اسم الخزنة يجب أن يكون 3 أحرف على الأقل";
+            return;
+        }
+
+        if (name.Length > 50)
+        {
+            NameError = "اسم الخزنة لا يجب أن يتجاوز 50 حرف";
+            return;
+        }
+
+        var all = await FinanceService.GetCashBoxes();
+
+        DuplicateCashBox = all.FirstOrDefault(c =>
+            c.name != null &&
+            c.name.Trim().ToLower() == name.ToLower() &&
+            (ShowAddDialog || c.cash_box_id != Form.cash_box_id));
+
+        if (ShowAddDialog)
+        {
+            if (DuplicateCashBox != null)
+            {
+                if (DuplicateCashBox.is_active)
+                {
+                    Message = "هذه الخزنة موجودة مسبقاً وهي نشطة";
+                    return;
+                }
+                else
+                {
+                    Message = "الخزنة موجودة مسبقاً لكنها غير نشطة";
+                    ShowActivatePrompt = true;
+                    return;
+                }
+            }
+
+            await FinanceService.AddCashBox(Form);
+            ToastService.ShowToast("تم إضافة الخزنة بنجاح", "success");
+        }
+        else
+        {
+            if (DuplicateCashBox != null &&
+     DuplicateCashBox.cash_box_id != Form.cash_box_id)
+            {
+                if (DuplicateCashBox.is_active)
+                {
+                    Message = "اسم الخزنة مستخدم بالفعل";
+                    return;
+                }
+                else
+                {
+                    Message = "هذا الاسم يعود لخزنة غير نشطة";
+                    ShowActivatePrompt = true;
+                    return;
+                }
+            }
+
+            await FinanceService.UpdateCashBox(Form);
+            ToastService.ShowToast("تم تحديث الخزنة بنجاح", "success");
+        }
+
+        CashBoxes = await FinanceService.GetCashBoxes();
+        await RefreshBalances();
+        CloseDialogs();
+    }
+
+    async Task ActivateExisting()
+    {
+        if (DuplicateCashBox != null)
+        {
+            DuplicateCashBox.is_active = true;
+
+            await FinanceService.UpdateCashBox(DuplicateCashBox);
+
+            ToastService.ShowToast("تم إعادة تنشيط الخزنة بنجاح", "success");
+
+            CashBoxes = await FinanceService.GetCashBoxes();
+            CloseDialogs();
+        }
+    }
+
+    decimal GetBalance(int cashBoxId)
+    {
+        return Balances.FirstOrDefault(x => x.cash_box_id == cashBoxId)?.balance ?? 0;
+    }
+
+    async Task RefreshBalances()
+    {
+        Balances = await FinanceService.GetCashBoxBalances();
+    }
+
+    async Task Toggle(int id)
+    {
+        await FinanceService.ToggleCashBox(id);
+
+        ToastService.ShowToast("تم تغيير حالة الخزنة بنجاح", "success");
+
+        CashBoxes = await FinanceService.GetCashBoxes();
+        CloseDialogs();
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting)
+            return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+
+            var ws = workbook.Worksheets.Add("الخزنات");
+
+            ws.Cell(1, 1).Value = "رقم الخزنة";
+            ws.Cell(1, 2).Value = "اسم الخزنة";
+            ws.Cell(1, 3).Value = "الرصيد";
+            ws.Cell(1, 4).Value = "الحالة";
+
+            int row = 2;
+
+            foreach (var c in CashBoxes)
+            {
+                ws.Cell(row, 1).Value = c.cash_box_id;
+                ws.Cell(row, 2).Value = c.name;
+                ws.Cell(row, 3).Value = GetBalance(c.cash_box_id);
+                ws.Cell(row, 4).Value = c.is_active ? "نشطة" : "غير نشطة";
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"CashBoxes_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    IEnumerable<CashBox> FilteredCashBoxes =>
+    CashBoxes.Where(c =>
+        CashBoxStatusFilter == "all" ||
+        (CashBoxStatusFilter == "active" && c.is_active) ||
+        (CashBoxStatusFilter == "inactive" && !c.is_active)
+    );
+
+// =========================================
+// عدل CloseDialogs
+// =========================================
+
+void CloseDialogs()
+{
+    ShowAddDialog = false;
+    ShowEditDialog = false;
+    ShowDeleteDialog = false;
+    ShowDepositDialog = false;
+    ShowTransferDialog = false;
+
+    Message = "";
+    NameError = "";
+    ShowActivatePrompt = false;
+    DuplicateCashBox = null;
+        TransferAmountError = "";
+        DepositAmountError = "";
+}
+
+}

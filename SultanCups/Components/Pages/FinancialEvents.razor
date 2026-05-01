@@ -1,0 +1,628 @@
+﻿@page "/FinancialEvents"
+@layout Layout.MainLayout
+@using SultanCups.Models
+@inject SultanCups.Services.FinanceService FinanceService
+
+@using ClosedXML.Excel
+@using ClosedXML.Excel.Drawings
+@inject IJSRuntime JS
+
+<div class="pro-page">
+
+    <div class="pro-topbar">
+
+        <h2 class="pro-title">
+            الحركات المالية
+            <span class="mg-readonly">قراءة فقط 🔒</span>
+        </h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+
+        <div></div>
+
+    </div>
+
+    <div class="emp-search-bar">
+
+        <input class="emp-search-input"
+               placeholder="بحث بالنوع أو المسؤول أو الشخص المرتبط أو الخزنة"
+               @bind="SearchText"
+               @bind:event="oninput" />
+
+        <select class="emp-filter-select" @bind="DayFilter">
+            <option value="0">كل الأيام</option>
+
+            @for (int d = 1; d <= 31; d++)
+            {
+                <option value="@d">@d</option>
+            }
+        </select>
+
+        <select class="emp-filter-select" @bind="MonthFilter">
+            <option value="0">كل الشهور</option>
+
+            @for (int m = 1; m <= 12; m++)
+            {
+                <option value="@m">@m</option>
+            }
+        </select>
+
+        <select class="emp-filter-select" @bind="YearFilter">
+            <option value="0">كل السنين</option>
+
+            @for (int y = 2026; y <= 2040; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+
+        <select class="emp-filter-select" @bind="DirectionFilter">
+            <option value="all">كل الإتجاهات</option>
+            <option value="IN">داخل</option>
+            <option value="OUT">خارج</option>
+        </select>
+
+        <div class="change-legend">
+            <span class="name-change-dot"></span>
+            <span>تعني تم تعديل هدا البيان إضغط على زر التفاصيل</span>
+        </div>
+
+    </div>
+
+    <div class="pro-card">
+        <div class="pro-table-wrap">
+
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>النوع</th>
+                        <th>المبلغ</th>
+                        <th>الاتجاه</th>
+                        <th>الخزنة</th>
+                        <th>المسؤول</th>
+                        <th>العنصر</th>
+                        <th>الشخص</th>
+                        <th>التفاصيل</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Logs == null)
+                    {
+                        <tr>
+                            <td colspan="8" class="pro-empty">جاري التحميل...</td>
+                        </tr>
+                    }
+                    else if (!FilteredLogs.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="st-empty-text">
+                                <div class="empty-state">
+
+                                    <img src="images/Empty.jpg" class="empty-img" />
+
+                                    <span>لا توجد بيانات</span>
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in FilteredLogs)
+                        {
+                            <tr>
+                                <td>@item.event_type</td>
+
+                                <td class="pro-money">
+                                    @item.amount.ToString("0.00") د.ل
+                                </td>
+
+                                <td>
+                                    @if (item.direction == "IN")
+                                    {
+                                        <span class="pro-total1">داخل</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pro-status-tag1">خارج</span>
+                                    }
+                                </td>
+
+                                <td>@item.CashBox?.name</td>
+
+                                <td>
+                                    @item.admin_name_snapshot
+
+                                    @if (item.Admin != null &&
+                                             !string.IsNullOrWhiteSpace(item.admin_name_snapshot) &&
+                                             item.Admin.full_name != item.admin_name_snapshot)
+                                    {
+                                        <span class="name-change-dot" title="تم تعديل الاسم"></span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(item.item_name_snapshot))
+                                    {
+                                        <span>-</span>
+                                    }
+                                    else
+                                    {
+                                        var pur = Purchases.FirstOrDefault(x => x.purchase_id == item.ref_id);
+
+                                        var currentItem = RawMaterials
+                                            .FirstOrDefault(x => x.raw_material_id == pur?.raw_material_id)?.name;
+
+                                        <span>
+                                            @item.item_name_snapshot
+
+                                            @if (!string.IsNullOrWhiteSpace(currentItem) &&
+                                                                                                         currentItem != item.item_name_snapshot)
+                                            {
+                                                <span class="name-change-dot" title="تم تعديل الاسم"></span>
+                                            }
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @{
+                                        string? currentName = null;
+
+                                        if (item.ref_table == "salaries")
+                                        {
+                                            var salary = Salaries.FirstOrDefault(x => x.salary_id == item.ref_id);
+                                            var emp = Employees.FirstOrDefault(x => x.employee_id == salary?.employee_id);
+                                            currentName = emp?.full_name;
+                                        }
+                                        else if (item.ref_table == "other_purchases")
+                                        {
+                                            var purchase = OtherPurchases.FirstOrDefault(x => x.other_purchase_id == item.ref_id);
+                                            currentName = purchase?.name;
+                                        }
+                                        else if (item.ref_table == "purchases")
+                                        {
+                                            var pur = Purchases.FirstOrDefault(x => x.purchase_id == item.ref_id);
+                                            var sup = Suppliers.FirstOrDefault(x => x.supplier_id == pur?.supplier_id);
+                                            currentName = sup?.name;
+                                        }
+                                    }
+
+                                    @if (string.IsNullOrWhiteSpace(item.person_name_snapshot))
+                                    {
+                                        <span>-</span>
+                                    }
+                                    else
+                                    {
+                                        <span>
+                                            @GetPersonDisplay(item)
+
+                                            @if (!string.IsNullOrWhiteSpace(currentName) &&
+                                                             currentName != item.person_name_snapshot)
+                                            {
+                                                <span class="name-change-dot" title="تم تعديل العنصر"></span>
+                                            }
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <button class="pro-btn-info"
+                                            @onclick="() => OpenDetails(item)">
+                                        تفاصيل
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+@if (ShowDetailsDialog && SelectedItem != null)
+{
+    <div class="sal-dialog-overlay">
+
+        <div class="sal-dialog-box">
+
+            <div class="sal-dialog-top"></div>
+
+            <div class="sal-dialog-body">
+
+                <h3>تفاصيل الحركة المالية</h3>
+
+                <div class="details-list">
+
+                    <div class="row">
+                        <span>رقم الحركة</span>
+                        <span>@SelectedItem.event_id</span>
+                    </div>
+
+                    <div class="row">
+                        <span>النوع</span>
+                        <span>@SelectedItem.event_type</span>
+                    </div>
+
+                    <div class="row">
+                        <span>المبلغ</span>
+                        <span>@SelectedItem.amount.ToString("0.00") د.ل</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الاتجاه</span>
+                        <span>@(SelectedItem.direction == "IN" ? "داخل" : "خارج")</span>
+                    </div>
+
+                    <div class="row">
+                        <span>الخزنة</span>
+                        <span>@SelectedItem.CashBox?.name</span>
+                    </div>
+
+                    <div class="row">
+                        <span>المسؤول</span>
+                        <span>@SelectedItem.admin_name_snapshot</span>
+                    </div>
+
+                    @if (SelectedItem.Admin != null &&
+                        !string.IsNullOrWhiteSpace(SelectedItem.admin_name_snapshot) &&
+                        SelectedItem.Admin.full_name != SelectedItem.admin_name_snapshot)
+                    {
+                        <div class="row">
+                            <span>تعديل الاسم</span>
+                            <span class="change-inline">
+                                <b>@SelectedItem.admin_name_snapshot</b>
+                                <span class="arrow-change">←</span>
+                                <b>@SelectedItem.Admin.full_name</b>
+                            </span>
+                        </div>
+                    }
+
+                    <div class="row">
+                        <span>الشخص المرتبط بالعملية</span>
+                        <span>
+                            @(string.IsNullOrWhiteSpace(SelectedItem.person_name_snapshot)
+                                ? "-"
+                                : SelectedItem.person_name_snapshot)
+                        </span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(SelectedItem.person_name_snapshot))
+                    {
+                        var newPerson = GetCurrentPersonName(SelectedItem);
+
+                        if (!string.IsNullOrWhiteSpace(newPerson) &&
+                            newPerson != SelectedItem.person_name_snapshot)
+                        {
+                            <div class="row">
+                                <span>تعديل الاسم</span>
+                                <span class="change-inline">
+                                    <b>@SelectedItem.person_name_snapshot</b>
+                                    <span class="arrow-change">←</span>
+                                    <b>@newPerson</b>
+                                </span>
+                            </div>
+                        }
+                    }
+
+                    <div class="row">
+                        <span>العنصر المرتبط بالعملية</span>
+                        <span>
+                            @(string.IsNullOrWhiteSpace(SelectedItem.item_name_snapshot)
+                                ? "-"
+                                : SelectedItem.item_name_snapshot)
+                        </span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(SelectedItem.item_name_snapshot))
+                    {
+                        var newItem = GetCurrentItemName(SelectedItem);
+
+                        if (!string.IsNullOrWhiteSpace(newItem) &&
+                            newItem != SelectedItem.item_name_snapshot)
+                        {
+                            <div class="row">
+                                <span>تعديل العنصر</span>
+                                <span class="change-inline">
+                                    <b>@SelectedItem.item_name_snapshot</b>
+                                    <span class="arrow-change">←</span>
+                                    <b>@newItem</b>
+                                </span>
+                            </div>
+                        }
+                    }
+
+
+                    <div class="row">
+                        <span>التاريخ</span>
+                        <span class="dt-box">
+                            <span class="dt-day">
+                                @SelectedItem.event_date.ToLocalTime().ToString("yyyy-MM-dd")
+                            </span>
+                            <span class="dt-time">
+                                @SelectedItem.event_date.ToLocalTime().ToString("HH:mm")
+                            </span>
+                        </span>
+                    </div>
+
+                    <div class="row">
+                        <span>الملاحظات</span>
+                        <span>
+                            @(string.IsNullOrWhiteSpace(SelectedItem.notes)
+                                ? "-"
+                                : SelectedItem.notes)
+                        </span>
+                    </div>
+
+                    <div class="row">
+                        <span>المرجع</span>
+                        <span>
+                            @(string.IsNullOrWhiteSpace(SelectedItem.ref_table)
+                                ? "-"
+                                : $"{SelectedItem.ref_table} - {SelectedItem.ref_id}")
+                        </span>
+                    </div>
+
+                </div>
+
+                <button class="btn-cancel" @onclick="CloseDetails">
+                    إغلاق
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+@code {
+
+    List<FinancialEvent>? Logs;
+
+    bool ShowDetailsDialog = false;
+
+    FinancialEvent? SelectedItem;
+
+    List<Employee> Employees = new();
+    List<Salary> Salaries = new();
+    List<OtherPurchase> OtherPurchases = new();
+
+    List<Supplier> Suppliers = new();
+    List<RawMaterial> RawMaterials = new();
+
+    List<Purchase> Purchases = new();
+
+    bool IsExporting = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logs = await FinanceService.GetFinancialEvents();
+        Employees = await FinanceService.GetActiveEmployees();
+        Salaries = await FinanceService.GetSalaries();
+        OtherPurchases = await FinanceService.GetOtherPurchases();
+        Suppliers = await FinanceService.GetSuppliers();
+        RawMaterials = await FinanceService.GetRawMaterials();
+        Purchases = await FinanceService.GetPurchases();
+    }
+
+    void OpenDetails(FinancialEvent item)
+    {
+        SelectedItem = item;
+        ShowDetailsDialog = true;
+    }
+
+    string? GetCurrentPersonName(FinancialEvent item)
+    {
+        if (item.ref_table == "salaries")
+        {
+            var sal = Salaries.FirstOrDefault(x => x.salary_id == item.ref_id);
+            return Employees.FirstOrDefault(x => x.employee_id == sal?.employee_id)?.full_name;
+        }
+
+        if (item.ref_table == "purchases")
+        {
+            var pur = Purchases.FirstOrDefault(x => x.purchase_id == item.ref_id);
+            return Suppliers.FirstOrDefault(x => x.supplier_id == pur?.supplier_id)?.name;
+        }
+
+        return null;
+    }
+
+    string? GetCurrentItemName(FinancialEvent item)
+    {
+        if (item.ref_table == "purchases")
+        {
+            var pur = Purchases.FirstOrDefault(x => x.purchase_id == item.ref_id);
+            return RawMaterials.FirstOrDefault(x => x.raw_material_id == pur?.raw_material_id)?.name;
+        }
+
+        return null;
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting)
+            return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(700);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+
+            var ws = workbook.Worksheets.Add("الحركات المالية");
+
+            ws.Cell(1, 1).Value = "رقم الحركة";
+            ws.Cell(1, 2).Value = "النوع";
+            ws.Cell(1, 3).Value = "المبلغ";
+            ws.Cell(1, 4).Value = "الاتجاه";
+            ws.Cell(1, 5).Value = "الخزنة";
+            ws.Cell(1, 6).Value = "المسؤول";
+            ws.Cell(1, 7).Value = "الشخص المرتبط";
+            ws.Cell(1, 8).Value = "العنصر";
+            ws.Cell(1, 9).Value = "التاريخ";
+            ws.Cell(1, 10).Value = "التفاصيل";
+            ws.Cell(1, 11).Value = "المرجع";
+
+            int row = 2;
+
+            foreach (var item in FilteredLogs)
+            {
+                ws.Cell(row, 1).Value = item.event_id;
+                ws.Cell(row, 2).Value = item.event_type;
+                ws.Cell(row, 3).Value = item.amount;
+                ws.Cell(row, 4).Value = item.direction == "IN" ? "داخل" : "خارج";
+                ws.Cell(row, 5).Value = item.CashBox?.name;
+                var adminExcelName = item.admin_name_snapshot;
+
+                if (item.Admin != null &&
+                    !string.IsNullOrWhiteSpace(item.admin_name_snapshot) &&
+                    item.Admin.full_name != item.admin_name_snapshot)
+                {
+                    adminExcelName =
+                        item.admin_name_snapshot + " ← " + item.Admin.full_name;
+                }
+
+                ws.Cell(row, 6).Value = adminExcelName;
+                var personExcelName = item.person_name_snapshot;
+
+                var currentPerson = GetCurrentPersonName(item);
+
+                if (!string.IsNullOrWhiteSpace(item.person_name_snapshot) &&
+                    !string.IsNullOrWhiteSpace(currentPerson) &&
+                    currentPerson != item.person_name_snapshot)
+                {
+                    personExcelName =
+                        item.person_name_snapshot + " ← " + currentPerson;
+                }
+
+                var itemExcelName = item.item_name_snapshot;
+
+                var currentItem = GetCurrentItemName(item);
+
+                if (!string.IsNullOrWhiteSpace(item.item_name_snapshot) &&
+                    !string.IsNullOrWhiteSpace(currentItem) &&
+                    currentItem != item.item_name_snapshot)
+                {
+                    itemExcelName =
+                        item.item_name_snapshot + " ← " + currentItem;
+                }
+
+                ws.Cell(row, 7).Value = personExcelName;
+                ws.Cell(row, 8).Value = itemExcelName;
+                ws.Cell(row, 9).Value = item.event_date.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+                ws.Cell(row, 10).Value = item.notes;
+                ws.Cell(row, 11).Value = $"{item.ref_table} - {item.ref_id}";
+                row++;
+            }
+
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"FinancialEvents_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    string GetPersonDisplay(FinancialEvent item)
+    {
+        if (string.IsNullOrWhiteSpace(item.person_name_snapshot))
+            return "-";
+
+        if (item.ref_table == "purchases")
+            return item.person_name_snapshot + " (مورد)";
+
+        if (item.ref_table == "salaries")
+            return item.person_name_snapshot + " (موظف)";
+
+        return item.person_name_snapshot;
+    }
+
+    void CloseDetails()
+    {
+        ShowDetailsDialog = false;
+        SelectedItem = null;
+    }
+
+    string SearchText = "";
+    
+    string DirectionFilter = "all";
+
+    int DayFilter = 0;
+    int MonthFilter = 0;
+    int YearFilter = 0;
+
+    IEnumerable<FinancialEvent> FilteredLogs =>
+        (Logs ?? new List<FinancialEvent>())
+        .Where(x =>
+
+            (string.IsNullOrWhiteSpace(SearchText) ||
+
+             x.event_type.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+
+             (!string.IsNullOrWhiteSpace(x.admin_name_snapshot) &&
+ x.admin_name_snapshot.Contains(SearchText, StringComparison.OrdinalIgnoreCase)) ||
+
+             (!string.IsNullOrWhiteSpace(x.person_name_snapshot) &&
+ x.person_name_snapshot.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+
+||
+
+(x.CashBox != null &&
+ x.CashBox.name.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+            )
+
+            &&
+
+            (DirectionFilter == "all" || x.direction == DirectionFilter)
+
+          &&
+
+(DayFilter == 0 ||
+ x.event_date.ToLocalTime().Day == DayFilter)
+
+&&
+
+(MonthFilter == 0 ||
+ x.event_date.ToLocalTime().Month == MonthFilter)
+
+&&
+
+(YearFilter == 0 ||
+ x.event_date.ToLocalTime().Year == YearFilter)
+        );
+
+}

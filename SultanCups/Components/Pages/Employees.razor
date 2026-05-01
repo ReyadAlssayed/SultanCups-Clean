@@ -1,0 +1,823 @@
+﻿
+@page "/Employees"
+@using System.Text.RegularExpressions
+@using SultanCups.Models
+@layout Layout.MainLayout
+@inject NavigationManager Nav
+@inject SultanCups.Services.HrService HrService
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="emp-page">
+
+    <div class="emp-topbar">
+
+        <button type="button"
+                class="emp-add-btn"
+                @onclick="OpenAddDialog">
+            إضافة موظف
+        </button>
+
+        <h2 class="emp-title-center">
+            الموظفين
+        </h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+
+    </div>
+
+    <div class="emp-search-bar">
+        <input class="emp-search-input"
+               placeholder="ابحث باسم الموظف أو رقم الهاتف"
+               @bind="SearchText"
+               @bind:event="oninput" />
+
+
+        <select class="emp-filter-select" @bind="EmployeeStatusFilter">
+            <option value="all">الكل</option>
+            <option value="active">النشط</option>
+            <option value="inactive">المعطل</option>
+        </select>
+
+       
+    </div>
+
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="emp-toast-container">
+        <div class="emp-toast @MessageType">
+            <span>@(MessageType == "success" ? "✅" : "⚠️")</span>
+            @Message
+        </div>
+    </div>
+}
+
+    <div class="emp-card">
+        <div class="emp-table-wrap">
+            <table class="emp-table">
+
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>رقم الهاتف</th>
+                        <th>الدور</th>
+                        <th>الراتب الأساسي</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (EmployeeList is null)
+                    {
+                        <tr>
+                            <td colspan="6">جاري التحميل...</td>
+                        </tr>
+                    }
+                    else if (EmployeeList.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="st-empty-text">
+                                <div class="empty-state">
+                
+                                    <img src="images/Empty.jpg" class="empty-img" />
+
+                                    <span>لا توجد بيانات</span>
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var e in FilteredEmployees)
+                        {
+                            <tr>
+                                <td class="emp-name">@e.full_name</td>
+                                <td class="emp-phone">@e.phone</td>
+                                <td class="emp-rank">@e.rank</td>
+                                <td class="emp-salary">@e.base_salary د.ل</td>
+
+                                <td class="emp-active">
+                                    <span class="emp-badge @(e.is_active ? "emp-on" : "emp-off")">
+                                        @(e.is_active ? "نشط" : "معطل")
+                                    </span>
+                                </td>
+
+                                <td class="emp-actions">
+                                    <button type="button"
+                                            class="emp-edit"
+                                            @onclick="() => OpenEditDialog(e)">
+                                        تعديل
+                                    </button>
+
+                                    <button type="button"
+                                            class="emp-delete"
+                                            @onclick="() => OpenDeleteDialog(e)">
+                                        حذف
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
+        </div>
+    </div>
+
+
+@if (ShowAddDialog)
+{
+    <div class="emp-dialog-overlay">
+        <div class="emp-dialog-box">
+
+            <div class="emp-dialog-top-image">
+                <img src="images/background.png" />
+            </div>
+
+            <div class="emp-dialog-body">
+                <h3>إضافة موظف جديد</h3>
+
+                <div class="emp-field">
+                    <label class="emp-label">الاسم الكامل</label>
+                    <input class="emp-input @(FullNameError != null ? "emp-input-error" : "")"
+                           placeholder="أدخل اسم الموظف..."
+                           @bind="EmployeeForm.full_name"
+                           maxlength="50" />
+                    @if (!string.IsNullOrWhiteSpace(FullNameError))
+                    {
+                        <div class="emp-error">@FullNameError</div>
+                    }
+                </div>
+
+                    @if (!string.IsNullOrEmpty(Message))
+                    {
+                        <div class="restore-box">
+                            <div class="restore-text">@Message</div>
+
+                            @if (ShowActivatePrompt)
+                            {
+                                <button type="button"
+                                        class="restore-btn"
+                                        @onclick="ActivateExisting">
+                                    تنشيط الموظف الآن؟
+                                </button>
+                            }
+                        </div>
+                    }
+
+                <div class="emp-field">
+                    <label class="emp-label">رقم الهاتف</label>
+                    <input class="emp-input @(PhoneError != null ? "emp-input-error" : "")"
+                           placeholder="09XXXXXXXX"
+                           @bind="EmployeeForm.phone"
+                           maxlength="10" />
+                    @if (!string.IsNullOrWhiteSpace(PhoneError))
+                    {
+                        <div class="emp-error">@PhoneError</div>
+                    }
+                </div>
+
+                <div class="emp-field">
+                    <label class="emp-label">الوظيفة / الدور</label>
+                    <select class="emp-input @(RankError != null ? "emp-input-error" : "")" @bind="EmployeeForm.rank">
+                        <option value="">اختر الدور...</option>
+                        <option value="فني">فني</option>
+                        <option value="مهندس">مهندس</option>
+                    </select>
+                    @if (!string.IsNullOrWhiteSpace(RankError))
+                    {
+                        <div class="emp-error">@RankError</div>
+                    }
+                </div>
+                    <div class="emp-field">
+                        <label class="emp-label">نوع الراتب</label>
+
+                        <select class="emp-input" @bind="EmployeeForm.salary_mode">
+                            <option value="راتب أساسي">راتب أساسي</option>
+                            <option value="طلعة">طلعة</option>
+                        </select>
+                    </div>
+
+                <div class="emp-field">
+                    <label class="emp-label">الراتب الأساسي</label>
+                        <input class="emp-input @(SalaryError != null ? "emp-input-error" : "")"
+                               type="number"
+                               step="0.01"
+                               placeholder="0.00"
+                               @bind="EmployeeForm.base_salary"
+                               @oninput="ValidateSalary" />
+
+                    @if (!string.IsNullOrWhiteSpace(SalaryError))
+                    {
+                        <div class="emp-error">@SalaryError</div>
+                    }
+                </div>
+
+                <div class="emp-dialog-actions">
+                    <button type="button" class="emp-save" @onclick="SaveAddEmployee">حفظ البيانات</button>
+                    <button type="button" class="emp-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@* --- جزء حوار التعديل المحدث --- *@
+@if (ShowEditDialog)
+{
+    <div class="emp-dialog-overlay">
+        <div class="emp-dialog-box">
+
+            <div class="emp-dialog-top-image">
+                <img src="images/background.png" />
+            </div>
+
+            <div class="emp-dialog-body">
+                <h3 class="emp-dialog-title">تعديل بيانات الموظف</h3>
+
+                <div class="emp-field">
+                    <label class="emp-label">الاسم الكامل</label>
+                    <input class="emp-input @(FullNameError != null ? "emp-input-error" : "")"
+                           @bind="EmployeeForm.full_name"
+                           maxlength="50" /> @* تم إضافة maxlength هنا *@
+                    @if (!string.IsNullOrWhiteSpace(FullNameError))
+                    {
+                        <div class="emp-error">@FullNameError</div>
+                    }
+                </div>
+
+                <div class="emp-field-row">
+                    <div class="emp-field">
+                        <label class="emp-label">رقم الهاتف</label>
+                        <input class="emp-input @(PhoneError != null ? "emp-input-error" : "")"
+                               @bind="EmployeeForm.phone"
+                               maxlength="10" /> @* تم إضافة maxlength هنا *@
+                    </div>
+
+                    <div class="emp-field">
+                        <label class="emp-label">الدور الوظيفي</label>
+                        <select class="emp-input" @bind="EmployeeForm.rank">
+                            <option value="فني">فني</option>
+                            <option value="مهندس">مهندس</option>
+                            <option value="Admin2">Admin2</option>
+                        </select>
+                    </div>
+                </div>
+                    <div class="emp-field">
+                        <label class="emp-label">نوع الراتب</label>
+
+                        <select class="emp-input" @bind="EmployeeForm.salary_mode">
+                            <option value="راتب أساسي">راتب أساسي</option>
+                            <option value="طلعة">طلعة</option>
+                        </select>
+                    </div>
+                    <div class="emp-field">
+                        <label class="emp-label">الراتب الأساسي</label>
+
+                        <input class="emp-input @(SalaryError != null ? "emp-input-error" : "")"
+                               type="number"
+                               step="0.01"
+                               placeholder="0.00"
+                               @bind="EmployeeForm.base_salary"
+                               @oninput="ValidateSalary" />
+
+                        @if (!string.IsNullOrWhiteSpace(SalaryError))
+                        {
+                            <div class="emp-error">@SalaryError</div>
+                        }
+                    </div>
+
+                    <div class="emp-status-container">
+                        <label class="emp-label">حالة الحساب</label>
+
+                        <div class="emp-status-buttons">
+                            <button type="button"
+                                    class="emp-status-btn @(EmployeeForm.is_active ? "emp-active-selected" : "")"
+                                    @onclick="() => EmployeeForm.is_active = true">
+                                نشط
+                            </button>
+
+                            <button type="button"
+                                    class="emp-status-btn @(!EmployeeForm.is_active ? "emp-inactive-selected" : "")"
+                                    @onclick="() => EmployeeForm.is_active = false">
+                                معطل
+                            </button>
+                        </div>
+                    </div>
+
+                <div class="emp-dialog-actions-row">
+                    <button type="button" class="btn-save-edit" @onclick="SaveEditEmployee">حفظ التعديلات</button>
+                    <button type="button" class="btn-cancel-edit" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="emp-dialog-overlay">
+        <div class="emp-dialog-box emp-delete-dialog-box">
+
+            <div class="emp-dialog-top-image emp-delete-top-image">
+                <img src="images/background.png" />
+            </div>
+
+            <div class="emp-dialog-body emp-delete-dialog-body">
+
+                <div class="emp-delete-icon-wrap">
+                    <div class="emp-delete-icon">!</div>
+                </div>
+
+                <h3 class="emp-delete-title">تأكيد الحذف</h3>
+
+                <p class="emp-delete-text">
+                        هل تريد حذف الموظف "@EmployeeForm.full_name"؟
+                        <br />
+                        <span style="color:#64748b;font-size:13px;">
+                            ملاحظة: إذا كان مرتبط بسجلات أخرى سيتم تعطيله بدل حذفه
+                        </span>
+                </p>
+
+                <div class="emp-dialog-actions">
+                    <button type="button"
+                            class="emp-delete-confirm"
+                            @onclick="ConfirmDeleteEmployee">
+                            حذف الآن
+                    </button>
+
+                    <button type="button"
+                            class="emp-cancel"
+                            @onclick="CloseDialogs">
+                        إلغاء
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+}
+
+</div>
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+@code {
+    List<SultanCups.Models.Employee>? EmployeeList;
+
+    bool ShowAddDialog = false;
+    bool ShowEditDialog = false;
+    bool ShowDeleteDialog = false;
+
+    string EmployeeStatusFilter = "all";
+    string? Message;
+    string MessageType = "";
+
+    bool IsExporting = false;
+
+    string? FullNameError;
+    string? PhoneError;
+    string? RankError;
+    string? SalaryError;
+
+    bool ShowActivatePrompt = false;
+    Employee? DuplicateEmployee;
+
+
+    private string SearchText = "";
+
+    SultanCups.Models.Employee EmployeeForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        EmployeeList = await HrService.GetEmployees();
+    }
+
+    void ValidateSalary(ChangeEventArgs e)
+    {
+        if (EmployeeForm.base_salary <= 0 || EmployeeForm.base_salary > 20000)
+            SalaryError = ""; // فقط لتفعيل الإطار الأحمر بدون نص
+        else
+            SalaryError = null;
+    }
+
+    void OpenAddDialog()
+    {
+        CloseDialogs();
+
+        EmployeeForm = new SultanCups.Models.Employee
+        {
+            is_active = true,
+            salary_mode = "راتب أساسي"
+        };
+
+        ShowAddDialog = true;
+    }
+
+    void OpenEditDialog(SultanCups.Models.Employee e)
+    {
+        CloseDialogs();
+
+        EmployeeForm = new SultanCups.Models.Employee
+        {
+            employee_id = e.employee_id,
+            full_name = e.full_name,
+            phone = e.phone,
+            rank = e.rank,
+            base_salary = e.base_salary,
+            salary_mode = e.salary_mode,
+            is_active = e.is_active
+        };
+
+        ShowEditDialog = true;
+    }
+
+    void OpenDeleteDialog(SultanCups.Models.Employee e)
+    {
+        CloseDialogs();
+
+        EmployeeForm = new SultanCups.Models.Employee
+        {
+            employee_id = e.employee_id,
+            full_name = e.full_name,
+            phone = e.phone,
+            rank = e.rank,
+            base_salary = e.base_salary,
+            salary_mode = e.salary_mode,
+            is_active = e.is_active
+        };
+
+        ShowDeleteDialog = true;
+    }
+
+    async Task ActivateExisting()
+    {
+        if (DuplicateEmployee != null)
+        {
+            DuplicateEmployee.is_active = true;
+
+            await HrService.UpdateEmployee(DuplicateEmployee);
+
+            EmployeeList = await HrService.GetEmployees();
+
+            CloseDialogs();
+
+            await ShowToast("تم تنشيط الموظف بنجاح", "success");
+        }
+    }
+
+
+    IEnumerable<Employee> FilteredEmployees =>
+        (EmployeeList ?? new List<Employee>())
+        .Where(e =>
+            (string.IsNullOrWhiteSpace(SearchText) ||
+                (e.full_name != null && e.full_name.Contains(SearchText, StringComparison.OrdinalIgnoreCase)) ||
+                (e.phone != null && e.phone.Contains(SearchText)))
+            &&
+            (EmployeeStatusFilter == "all" ||
+             (EmployeeStatusFilter == "active" && e.is_active) ||
+             (EmployeeStatusFilter == "inactive" && !e.is_active))
+        );
+
+    async Task ShowToast(string msg, string type)
+    {
+        Message = msg;
+        MessageType = type;
+        StateHasChanged(); // تحديث الواجهة لإظهار الإشعار
+
+        await Task.Delay(5000); // انتظر 5 ثوانٍ
+
+        Message = null; // اخفِ الرسالة
+        StateHasChanged(); // تحديث الواجهة لإخفاء الإشعار
+    }
+
+    void ToggleEditActive()
+    {
+        EmployeeForm.is_active = !EmployeeForm.is_active;
+    }
+
+    async Task SaveAddEmployee()
+    {
+        // 1. تصفير الأخطاء السابقة لتحديث الواجهة
+        FullNameError = null;
+        PhoneError = null;
+        RankError = null;
+        SalaryError = null;
+
+        var name = EmployeeForm.full_name?.Trim();
+        var phone = EmployeeForm.phone?.Trim();
+        var rank = EmployeeForm.rank?.Trim();
+
+        bool hasError = false;
+
+        // 2. التحقق من "الاسم الكامل"
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            FullNameError = "الاسم مطلوب";
+            hasError = true;
+        }
+        // قيد: منع وجود أرقام في اسم الموظف
+        else if (!Regex.IsMatch(name, @"^[\u0600-\u06FFa-zA-Z\s]+$"))
+        {
+            FullNameError = "الاسم لا يمكن أن يحتوي على أرقام";
+            hasError = true;
+        }
+        // قيد: منع تكرار الاسم (تطابق 100%)
+        else
+        {
+            DuplicateEmployee = EmployeeList
+                .FirstOrDefault(e =>
+                    e.full_name != null &&
+                    e.full_name.Trim().ToLower() == name.ToLower());
+
+            if (DuplicateEmployee != null)
+            {
+                if (DuplicateEmployee.is_active)
+                {
+                    FullNameError = "هذا الاسم موجود مسبقاً";
+                    return;
+                }
+                else
+                {
+                    Message = "الموظف موجود في الأرشيف";
+                    ShowActivatePrompt = true;
+                    return;
+                }
+            }
+        }
+
+        // 3. التحقق من "رقم الهاتف"
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            if (!Regex.IsMatch(phone, @"^09\d{8}$"))
+            {
+                PhoneError = "رقم الهاتف يجب أن يبدأ بـ 09 ويتكون من 10 خانات";
+                hasError = true;
+            }
+            else if (!phone.StartsWith("09"))
+            {
+                PhoneError = "رقم الهاتف يجب أن يبدأ بـ 09";
+                hasError = true;
+            }
+            else if (!phone.All(char.IsDigit))
+            {
+                PhoneError = "رقم الهاتف يجب أن يحتوي على أرقام فقط";
+                hasError = true;
+            }
+        }
+
+        // 4. التحقق من "الدور الوظيفي"
+        if (string.IsNullOrWhiteSpace(rank))
+        {
+            RankError = "الدور مطلوب";
+            hasError = true;
+        }
+
+        // 5. التحقق من "الراتب الأساسي" (بين 1 و 
+        // ,000)
+        if (EmployeeForm.base_salary <= 0)
+        {
+            SalaryError = "الراتب الأساسي يجب أن يكون أكبر من صفر";
+            hasError = true;
+        }
+        else if (EmployeeForm.base_salary > 20000)
+        {
+            SalaryError = "الحد الأقصى للراتب هو 20,000 د.ل";
+            hasError = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(EmployeeForm.salary_mode))
+        {
+            EmployeeForm.salary_mode = "راتب أساسي";
+        }
+
+        // توقف في حال وجود أي خطأ
+        if (hasError) return;
+
+        // 6. التنفيذ البرمجي والحفظ
+        try
+        {
+            await HrService.AddEmployee(EmployeeForm);
+        
+            // تحديث القائمة لإظهار الموظف الجديد فوراً
+            EmployeeList = await HrService.GetEmployees();
+        
+            CloseDialogs();
+            await ShowToast("تم إضافة الموظف بنجاح", "success");
+        }
+        catch (Exception)
+        {
+            await ShowToast("حدث خطأ أثناء الإضافة، تأكد من الاتصال بالخادم", "error");
+        }
+    }
+
+    async Task SaveEditEmployee()
+    {
+        // 1. تصفير الأخطاء السابقة
+        FullNameError = null;
+        PhoneError = null;
+        RankError = null;
+        SalaryError = null;
+
+        var name = EmployeeForm.full_name?.Trim();
+        var phone = EmployeeForm.phone?.Trim();
+        var rank = EmployeeForm.rank?.Trim();
+
+        bool hasError = false;
+
+        // 2. التحقق من "الاسم الكامل"
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            FullNameError = "الاسم مطلوب";
+            hasError = true;
+        }
+        // منع الأرقام
+        else if (!Regex.IsMatch(name, @"^[\u0600-\u06FFa-zA-Z\s]+$"))
+        {
+            FullNameError = "الاسم لا يمكن أن يحتوي على أرقام";
+            hasError = true;
+        }
+        // قيد: منع تكرار الاسم (مع استثناء الموظف الذي يتم تعديله حالياً)
+        else if (EmployeeList != null && EmployeeList.Any(e => e.full_name?.Trim().ToLower() == name.ToLower() && e.employee_id != EmployeeForm.employee_id))
+        {
+            FullNameError = "هذا الاسم مستخدم لموظف آخر، يرجى كتابة اسم ثلاثي مختلف";
+            hasError = true;
+        }
+
+        // 3. التحقق من "رقم الهاتف"
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            if (phone.Length != 10)
+            {
+                PhoneError = "رقم الهاتف يجب أن يكون 10 أرقام";
+                hasError = true;
+            }
+            else if (!phone.StartsWith("09"))
+            {
+                PhoneError = "رقم الهاتف يجب أن يبدأ بـ 09";
+                hasError = true;
+            }
+            else if (!phone.All(char.IsDigit))
+            {
+                PhoneError = "رقم الهاتف يجب أن يحتوي على أرقام فقط";
+                hasError = true;
+            }
+        }
+
+        // 4. التحقق من "الدور الوظيفي"
+        if (string.IsNullOrWhiteSpace(rank))
+        {
+            RankError = "الدور مطلوب";
+            hasError = true;
+        }
+
+        // 5. التحقق من "الراتب الأساسي" (بين 1 و 20,000)
+        if (EmployeeForm.base_salary <= 0)
+        {
+            SalaryError = "الراتب يجب أن يكون أكبر من صفر";
+            hasError = true;
+        }
+        else if (EmployeeForm.base_salary > 20000)
+        {
+            SalaryError = "الحد الأقصى للراتب هو 20,000 د.ل";
+            hasError = true;
+        }
+
+        // توقف في حال وجود أي خطأ
+        if (hasError) return;
+
+        // 6. تنفيذ التحديث
+        try
+        {
+            await HrService.UpdateEmployee(EmployeeForm);
+        
+            // تحديث القائمة لإظهار البيانات الجديدة
+            EmployeeList = await HrService.GetEmployees();
+        
+            CloseDialogs();
+            await ShowToast("تم تعديل بيانات الموظف بنجاح", "success");
+        }
+        catch (Exception)
+        {
+            await ShowToast("فشل تحديث البيانات، يرجى المحاولة لاحقاً", "error");
+        }
+    }
+
+    async Task ConfirmDeleteEmployee()
+    {
+        var result = await HrService.DeleteOrDisableEmployee(EmployeeForm.employee_id);
+        string msg = "";
+        string type = "";
+
+        if (result == "deleted")
+        {
+            msg = "تم حذف الموظف بنجاح";
+            type = "success";
+        }
+        else if (result == "disabled")
+        {
+            msg = "الموظف مرتبط بسجلات، لذلك تم تعطيله بدل حذفه";
+            type = "warning";
+        }
+        else
+        {
+            msg = "حدث خطأ";
+            type = "error";
+        }
+
+        EmployeeList = await HrService.GetEmployees();
+        CloseDialogs(); 
+        
+        // التعديل هنا: تمرير النتيجة لدالة الـ Toast
+        await ShowToast(msg, type);
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting)
+            return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+
+            var ws = workbook.Worksheets.Add("الموظفين");
+
+            ws.Cell(1, 1).Value = "رقم الموظف";
+            ws.Cell(1, 2).Value = "الاسم";
+            ws.Cell(1, 3).Value = "الهاتف";
+            ws.Cell(1, 4).Value = "الدور";
+            ws.Cell(1, 5).Value = "نوع الراتب";
+            ws.Cell(1, 6).Value = "الراتب الأساسي";
+            ws.Cell(1, 7).Value = "الحالة";
+
+            int row = 2;
+
+            foreach (var e in FilteredEmployees)
+            {
+                ws.Cell(row, 1).Value = e.employee_id;
+                ws.Cell(row, 2).Value = e.full_name;
+                ws.Cell(row, 3).Value = e.phone;
+                ws.Cell(row, 4).Value = e.rank;
+                ws.Cell(row, 5).Value = e.salary_mode;
+                ws.Cell(row, 6).Value = e.base_salary;
+                ws.Cell(row, 7).Value = e.is_active ? "نشط" : "معطل";
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Employees_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void CloseDialogs()
+    {
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+        EmployeeForm = new SultanCups.Models.Employee();
+
+        FullNameError = null;
+        PhoneError = null;
+        RankError = null;
+        SalaryError = null;
+    }
+}

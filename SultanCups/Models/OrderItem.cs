@@ -1,0 +1,28 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace SultanCups.Models
+{
+    public class OrderItem
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // 🔥 مهم
+        public int order_item_id { get; set; }
+
+        public int order_id { get; set; }
+
+        public int product_id { get; set; }
+
+        public int quantity { get; set; }
+
+        public decimal unit_price { get; set; }
+
+        [NotMapped]
+        public decimal total => quantity * unit_price;
+
+        public Order? Order { get; set; }
+
+        [NotMapped]
+        public bool IsRemoving { get; set; } = false;
+    }
+}

@@ -1,0 +1,397 @@
+﻿@page "/production"
+@layout Layout.MainLayout
+@inject SultanCups.Services.InventoryService InventoryService
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="pro-page">
+    @if (!string.IsNullOrEmpty(ToastMessage))
+    {
+        <div class="prod-toast-container">
+            <div class="prod-toast @ToastClass">
+                @ToastMessage
+            </div>
+        </div>
+    }
+    <div class="pro-topbar">
+        <button type="button" class="pro-btn-add" @onclick="OpenAddDialog">إضافة إنتاج جديد</button>
+
+        <h2 class="pro-title">سجلات الإنتاج</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+    <div class="pro-card">
+        <div class="pro-table-wrap">
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>المنتج</th>
+                        <th>الكمية (كرتونة)</th>
+                        <th>تكلفة الكرتونة</th>
+                        <th>إجمالي التكلفة</th>
+                        <th>تاريخ الإنتاج</th>
+                        <th style="text-align:center">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (ProductionList is null)
+                    {
+                        <tr><td colspan="6" class="pro-loading">جاري التحميل...</td></tr>
+                    }
+                    else if (ProductionList.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="pro-empty">
+                                <div class="empty-state">
+                
+                                    <img src="images/Empty.jpg" class="empty-img" />
+
+                                    <span>لا توجد بيانات إنتاج حالية</span>
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var p in ProductionList)
+                        {
+                            <tr>
+                                <td class="pro-name">
+                                    @p.Product?.name
+                                    @if (p.Product != null && !p.Product.is_active)
+                                    {
+                                        <span class="pro-status-tag">موقوف</span>
+                                    }
+                                </td>
+                                <td class="pro-count">@p.box_count</td>
+                                <td class="pro-money">@Fmt(p.box_cost)</td>
+                                <td class="pro-money"><span class="pro-total">@Fmt(p.total_cost)</span></td>
+                                <td class="pro-date">@p.production_date.ToString("yyyy-MM-dd")</td>
+
+                                <td style="text-align:center;">
+                                    <button type="button" class="pro-small pro-edit" @onclick="() => OpenEditDialog(p)">تعديل</button>
+                                    <button type="button" class="pro-small pro-del" @onclick="() => OpenDeleteDialog(p)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowAddDialog || ShowEditDialog)
+{
+    <div class="pro-dialog-overlay">
+        @* هذا السطر الذي كان ينقصك لفتح النافذة *@
+        <div class="pro-dialog-box">
+            @* وهذا السطر أيضاً *@
+            
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+                <h3>@(ShowAddDialog ? "إضافة إنتاج" : "تعديل الإنتاج")</h3>
+
+                <div class="pro-fields-grid">
+                    @* حقل المنتج *@
+                    <div class="pro-field">
+                        <label class="pro-label">المنتج</label>
+                        <select class="pro-input @(string.IsNullOrEmpty(ProductError) ? "" : "is-invalid")" @bind="ProForm.product_id">
+                            <option value="0">اختر المنتج</option>
+                            @foreach (var product in ProductList)
+                            {
+                                <option value="@product.product_id">@product.name</option>
+                            }
+                        </select>
+                        @if (!string.IsNullOrEmpty(ProductError))
+                        {
+                            <div class="pro-error-text">@ProductError</div>
+                        }
+                    </div>
+
+                    @* حقل عدد الكراتين *@
+                    <div class="pro-field">
+                        <label class="pro-label">عدد الكراتين (1-1000)</label>
+                        <input class="pro-input @(string.IsNullOrEmpty(CountError) ? "" : "is-invalid")" type="number" @bind="ProForm.box_count" />
+                        @if (!string.IsNullOrEmpty(CountError))
+                        {
+                            <div class="pro-error-text">@CountError</div>
+                        }
+                    </div>
+
+                    @* حقل تكلفة الكرتونة *@
+                    <div class="pro-field">
+                        <label class="pro-label">تكلفة الكرتونة (د.ل)</label>
+                        <input class="pro-input @(string.IsNullOrEmpty(CostError) ? "" : "is-invalid")" type="number" step="0.01" @bind="ProForm.box_cost" />
+                        @if (!string.IsNullOrEmpty(CostError))
+                        {
+                            <div class="pro-error-text">@CostError</div>
+                        }
+                    </div>
+
+                    @* حقل التاريخ *@
+                    <div class="pro-field">
+                        <label class="pro-label">التاريخ</label>
+                        <input class="pro-input" type="date" @bind="ProForm.production_date" />
+                    </div>
+
+                    @* حقل الملاحظات *@
+                    <div class="pro-field" style="grid-column: span 2;">
+                        <label class="pro-label">ملاحظات (الحد الأقصى 100 حرف)</label>
+                        <textarea class="pro-input @(string.IsNullOrEmpty(NoteError) ? "" : "is-invalid")"
+                                      @bind="ProForm.notes" rows="3" maxlength="100" placeholder="أضف ملاحظاتك هنا...">
+</textarea>
+                        @if (!string.IsNullOrEmpty(NoteError))
+                        {
+                            <div class="pro-error-text">@NoteError</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="pro-dialog-actions">
+                    <button type="button" class="pro-save" @onclick="SaveProduction">حفظ</button>
+                    <button type="button" class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box pro-delete-dialog-box">
+            <div class="pro-dialog-top-image pro-delete-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body pro-delete-dialog-body">
+                <div class="pro-delete-icon-wrap">
+                    <div class="pro-delete-icon">!</div>
+                </div>
+
+                <h3 class="pro-delete-title">تأكيد الحذف</h3>
+                    <p class="pro-delete-text text-center-delete">
+                        هل تريد حذف سجل إنتاج "@DeleteProductName"؟
+                    </p>
+
+                <div class="pro-dialog-actions">
+                    <button type="button" class="pro-delete-confirm" @onclick="ConfirmDelete">حذف</button>
+                    <button type="button" class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+    @if (IsExporting)
+    {
+        <div class="excel-loading-overlay">
+            <div class="excel-loading-box">
+                جاري الأرشفة...
+            </div>
+        </div>
+    }
+
+@code {
+    List<SultanCups.Models.Production>? ProductionList;
+    List<SultanCups.Models.Product> ProductList = new();
+
+    bool ShowAddDialog = false;
+    bool ShowEditDialog = false;
+    bool ShowDeleteDialog = false;
+
+    string ProductError = "";
+    string CountError = "";
+    string CostError = "";
+    string NoteError = "";
+
+    bool IsExporting = false;
+
+    string ToastMessage = string.Empty;
+    string ToastClass = "success";
+
+    SultanCups.Models.Production ProForm = new();
+    string DeleteProductName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProductionList = await InventoryService.GetProduction();
+        ProductList = await InventoryService.GetProducts();
+    }
+
+    string Fmt(decimal v) => $"{v:0.00} د.ل";
+
+    void OpenAddDialog()
+    {
+        CloseDialogs();
+        ProForm = new SultanCups.Models.Production
+        {
+            production_date = DateTime.Today
+        };
+        ShowAddDialog = true;
+    }
+
+
+    void ShowToast(string msg, string type = "success")
+    {
+        ToastMessage = msg;
+        ToastClass = type;
+        StateHasChanged();
+    
+        // يختفي التنبيه تلقائياً بعد 3 ثواني
+        Task.Delay(3000).ContinueWith(_ =>
+        {
+            ToastMessage = string.Empty;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    void OpenEditDialog(SultanCups.Models.Production p)
+    {
+        CloseDialogs();
+
+        ProForm = new SultanCups.Models.Production
+        {
+            production_id = p.production_id,
+            product_id = p.product_id,
+            box_count = p.box_count,
+            box_cost = p.box_cost,
+            production_date = p.production_date,
+            notes = p.notes // أضف هذا السطر لربط الملاحظات
+        };
+
+        ShowEditDialog = true;
+    }
+
+    void OpenDeleteDialog(SultanCups.Models.Production p)
+    {
+        CloseDialogs();
+
+        ProForm = new SultanCups.Models.Production
+        {
+            production_id = p.production_id,
+            product_id = p.product_id,
+            box_count = p.box_count,
+            box_cost = p.box_cost,
+            production_date = p.production_date,
+            notes = p.notes // أضف هذا السطر
+        };
+
+        DeleteProductName = p.Product?.name ?? "منتج غير معروف";
+        ShowDeleteDialog = true;
+    }
+
+    async Task SaveProduction()
+    {
+        // تصفير جميع الأخطاء قبل الفحص
+        ProductError = CountError = CostError = NoteError = "";
+
+        bool hasError = false;
+
+        if (ProForm.product_id <= 0) { ProductError = "يرجى اختيار منتج"; hasError = true; }
+        if (ProForm.box_count < 1 || ProForm.box_count > 1000) { CountError = "العدد بين 1 و 1000"; hasError = true; }
+        if (ProForm.box_cost <= 0 || ProForm.box_cost > 100) { CostError = "التكلفة بين 0.01 و 100"; hasError = true; }
+        if (!string.IsNullOrEmpty(ProForm.notes) && ProForm.notes.Length > 100) { NoteError = "أقصى حد 100 حرف"; hasError = true; }
+
+        if (hasError) return;
+
+        string actionText = ShowAddDialog ? "إضافة" : "تعديل";
+
+        if (ShowAddDialog)
+            await InventoryService.AddProduction(ProForm);
+        else
+            await InventoryService.UpdateProduction(ProForm);
+
+        ProductionList = await InventoryService.GetProduction();
+    
+        ShowToast($"تم {actionText} الإنتاج بنجاح", "success");
+        CloseDialogs();
+    }
+
+    async Task ConfirmDelete()
+    {
+        await InventoryService.DeleteProduction(ProForm.production_id);
+        ProductionList = await InventoryService.GetProduction();
+    
+        ShowToast("تم حذف سجل الإنتاج بنجاح", "error");
+        CloseDialogs();
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting) return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("الإنتاج");
+
+            ws.Cell(1, 1).Value = "رقم";
+            ws.Cell(1, 2).Value = "المنتج";
+            ws.Cell(1, 3).Value = "الكمية";
+            ws.Cell(1, 4).Value = "تكلفة الكرتونة";
+            ws.Cell(1, 5).Value = "الإجمالي";
+            ws.Cell(1, 6).Value = "التاريخ";
+            ws.Cell(1, 7).Value = "ملاحظات";
+
+            int row = 2;
+
+            foreach (var p in ProductionList ?? new())
+            {
+                ws.Cell(row, 1).Value = p.production_id;
+                ws.Cell(row, 2).Value = p.Product?.name;
+                ws.Cell(row, 3).Value = p.box_count;
+                ws.Cell(row, 4).Value = p.box_cost;
+                ws.Cell(row, 5).Value = decimal.Round(p.box_count * p.box_cost, 2);
+                ws.Cell(row, 6).Value = p.production_date.ToString("yyyy-MM-dd");
+                ws.Cell(row, 7).Value = p.notes;
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Production_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void CloseDialogs()
+    {
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+        ProForm = new SultanCups.Models.Production();
+        DeleteProductName = "";
+        ProductError = CountError = CostError = NoteError = "";
+    }
+
+}

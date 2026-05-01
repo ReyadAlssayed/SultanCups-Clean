@@ -1,0 +1,271 @@
+﻿@page "/Settings"
+@layout MainLayout
+@inject NavigationManager Nav
+@inject SultanCups.Services.AdminService AdminService
+
+<div class="settings-page">
+
+    <div class="settings-header">
+
+        <div class="header-content">
+            <div class="image-avatar">
+                <img src="images/Admins.png" />
+            </div>
+
+            <div class="user-box">
+                <div class="user-name">@CurrentUserName</div>
+                <div class="user-role">@CurrentUserRole</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section-title">الإعدادات</div>
+
+    <div class="settings-list">
+
+        <div class="settings-item" @onclick="() => ShowProfileDialog = true">
+            <div class="item-left">
+                <img src="images/profile.png" class="item-icon" />
+                <span>الملف الشخصي</span>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+
+
+        <div class="settings-item" @onclick="GoToBackups">
+            <div class="item-left">
+                <img src="images/tracking.png" class="item-icon" />
+                <span>النسخ الاحتياطي الى ملف excel</span>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+
+
+        <div class="settings-item" @onclick="() => ShowSystemInfoDialog = true">
+            <div class="item-left">
+                <img src="images/information.png" class="item-icon" />
+                <span>معلومات النظام</span>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+
+        <div class="settings-item" @onclick="() => ShowSupportDialog = true">
+            <div class="item-left">
+                <img src="images/tracking.png" class="item-icon" />
+                <span>الدعم الفني</span>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+
+
+        <div class="settings-item" @onclick="() => ShowAboutDialog = true">
+            <div class="item-left">
+                <img src="images/information.png" class="item-icon" />
+                <span>حول النظام</span>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+
+        <div class="settings-item version-item">
+            <div class="item-left">
+                <img src="images/information.png" class="item-icon" />
+                <span>إصدار التطبيق</span>
+            </div>
+            <span class="version-text">@AppVersionText</span>
+        </div>
+
+    </div>
+
+</div>
+
+@if (ShowProfileDialog)
+{
+    <div class="dialog-overlay">
+        <div class="dialog-box" dir="rtl">
+            <h3>الملف الشخصي</h3>
+
+            <div class="profile-grid">
+                <div class="profile-row">
+                    <span class="k">الاسم</span>
+                    <strong class="v">@CurrentUserName</strong>
+                </div>
+                <div class="profile-row">
+                    <span class="k">الصلاحية</span>
+                    <strong class="v">@CurrentUserRole</strong>
+                </div>
+            </div>
+
+            <button class="dialog-close" @onclick="() => ShowProfileDialog = false">إغلاق</button>
+        </div>
+    </div>
+}
+
+@if (ShowSupportDialog)
+{
+    <div class="dialog-overlay">
+        <div class="dialog-box">
+            <h3>الدعم الفني</h3>
+
+            <textarea class="dialog-textarea"
+                      rows="4"
+                      placeholder="اكتب ملاحظتك أو المشكلة هنا..."
+                      @bind="SupportNotes"></textarea>
+
+            <button class="dialog-action" @onclick="SendSupport">إرسال</button>
+            <button class="dialog-close" @onclick="() => ShowSupportDialog = false">إلغاء</button>
+        </div>
+    </div>
+}
+
+@if (ShowAboutDialog)
+{
+    <div class="dialog-overlay">
+        <div class="dialog-box dialog-about">
+
+            <div class="about-main-icon">
+                <img src="images/information.png" />
+            </div>
+
+            <h3 class="about-title-black">حول النظام</h3>
+
+            <div class="about-grid">
+                <div class="about-box">
+                    <span class="label">اسم النظام</span>
+                    <strong>مصنع أكواب السلطان</strong>
+                </div>
+
+                <div class="about-box">
+                    <span class="label">الفريق المطور</span>
+                    <strong>الحداثة للأنظمة الرقمية</strong>
+                </div>
+
+                <div class="about-box">
+                    <span class="label">اسماء المطورين</span>
+
+                    <div class="dev-list">
+                        <span class="dev-pill blue">محمود عبد السميع</span>
+                        <span class="dev-pill green">رياض السيد</span>
+                    </div>
+                </div>
+
+                <div class="about-box">
+                    <span class="label">واتساب</span>
+                    <strong style="color:#16a34a;">0910772372</strong>
+                </div>
+
+                <div class="about-box">
+                    <span class="label">الهاتف</span>
+                    <strong>0926276936</strong>
+                </div>
+            </div>
+
+            <div class="about-footer">© 1447 — جميع الحقوق محفوظة</div>
+
+            <button class="dialog-close" @onclick="() => ShowAboutDialog = false">إغلاق</button>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="dialog-overlay">
+        <div class="dialog-box">
+            <div class="msg-success">
+
+                <div class="msg-check">@(IsWarningMessage ? "؟" : "✔")</div>
+
+                <p>@Message</p>
+
+                @if (!IsWarningMessage)
+                {
+                    <small>سيتم التواصل معك في أقرب وقت</small>
+                }
+
+            </div>
+            <button class="dialog-close" @onclick="() => Message = string.Empty">حسناً</button>
+        </div>
+    </div>
+}
+
+
+@if (ShowSystemInfoDialog)
+{
+    <div class="dialog-overlay">
+        <div class="dialog-box dialog-about">
+
+            <h3 class="about-title-black">معلومات النظام</h3>
+
+            <div class="about-grid">
+
+                <div class="about-box">
+                    <strong>
+                        إذا رأيت 💵 داخل أي نافذة فهذا يعني حركة مالية فعلية.
+                    </strong>
+                </div>
+
+                <div class="about-box">
+                    <strong>
+                        في المشتريات عند تعديل السعر أو الكمية يتم إعادة حساب الفرق تلقائيًا.
+                    </strong>
+                </div>
+
+            </div>
+
+            <button class="dialog-close"
+                    @onclick="() => ShowSystemInfoDialog = false">
+                إغلاق
+            </button>
+
+        </div>
+    </div>
+}
+
+@code {
+    string CurrentUserName = "رياض";
+    string CurrentUserRole = "مسؤول أول";
+    string AppVersionText = "SultanCups · .NET · v1.0";
+
+    bool ShowProfileDialog;
+    bool ShowSupportDialog;
+    bool ShowAboutDialog;
+
+    string SupportNotes = "";
+    string Message = "";
+    bool ShowSystemInfoDialog;
+
+    bool IsWarningMessage = false;
+
+    // تم دمج الدوال في نسخة واحدة نظيفة لكل وجهة
+    void GoToAdmins() => Nav.NavigateTo("/Admins");
+    
+    void GoToBackups()
+    {
+        Nav.NavigateTo("/Backup");
+    }
+
+    async Task SendSupport()
+    {
+        if (string.IsNullOrWhiteSpace(SupportNotes))
+        {
+            Message = "اكتب ملاحظة أولاً";
+            IsWarningMessage = true;
+            return;
+        }
+
+        await AdminService.SendSupportMessage(
+            CurrentUserName,
+            CurrentUserRole,
+            SupportNotes
+        );
+
+        Message = "تم إرسال الملاحظة للمطور";
+        IsWarningMessage = false;
+        SupportNotes = "";
+        ShowSupportDialog = false;
+    }
+
+    void Logout()
+    {
+        Nav.NavigateTo("/", true);
+    }
+}

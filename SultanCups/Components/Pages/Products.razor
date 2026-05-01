@@ -1,0 +1,480 @@
+﻿@page "/Products"
+@using System.Text.RegularExpressions
+@layout Layout.MainLayout
+@inject SultanCups.Services.InventoryService InventoryService
+
+@using ClosedXML.Excel
+@inject IJSRuntime JS
+
+<div class="pro-page">
+
+    @if (!string.IsNullOrEmpty(ToastMessage))
+    {
+        <div class="prod-toast-container">
+            <div class="prod-toast @ToastClass">
+                @ToastMessage
+            </div>
+        </div>
+    }
+
+    <div class="pro-topbar">   
+
+        <button class="pro-btn-add" @onclick="OpenAddDialog">إضافة منتج</button>
+
+        <h2 class="pro-title">المنتجات</h2>
+
+        <button class="pro-btn-excel"
+                @onclick="ExportToExcel"
+                disabled="@IsExporting">
+            أرشفة Excel
+        </button>
+    </div>
+
+    <div class="mk-search-bar">
+        <select class="mk-filter-select" @bind="StatusFilter">
+            <option value="all">الكل</option>
+            <option value="active">النشط</option>
+            <option value="inactive">المعطل</option>
+        </select>
+    </div>
+
+    <div class="pro-card">
+        <div class="pro-table-wrap">
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>اسم المنتج</th>
+                        <th>سعر البيع</th>
+                        <th style="text-align:center">الحالة</th>
+                        <th style="text-align:center">الإجراءات</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (ProductList is null)
+                    {
+                        <tr>
+                            <td colspan="3" style="text-align:center">جاري التحميل...</td>
+                        </tr>
+                    }
+                    else if (ProductList.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="3" class="pro-empty">
+                                <div class="empty-state">
+                                    <img src="images/Empty.jpg" class="empty-img" />
+                                    <span>لا توجد بيانات</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var p in FilteredProducts)
+                        {
+                            <tr>
+                                <td class="pro-name">@p.name</td>
+
+                                <td class="pro-money">@p.sale_price</td>
+
+                                <td style="text-align:center">
+                                    @if (p.is_active)
+                                    {
+                                        <span class="badge-active">نشط</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-inactive">غير نشط</span>
+                                    }
+                                </td>
+
+                                <td style="text-align:center;">
+                                    <button class="pro-small pro-edit" @onclick="() => OpenEditDialog(p)">تعديل</button>
+
+                                    <button class="pro-small pro-del" @onclick="() => OpenDeleteDialog(p)">
+                                        @(p.is_active ? "حذف" : "تنشيط")
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
+        </div>
+    </div>
+
+</div>
+
+@if (ShowAddDialog || ShowEditDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body">
+
+                <h3>@(ShowAddDialog ? "إضافة منتج جديد" : "تعديل المنتج")</h3>
+
+                <div class="pro-field">
+                    <label class="pro-label">اسم المنتج</label>
+
+                    <input class="pro-input @(string.IsNullOrWhiteSpace(Message) ? "" : "is-invalid")"
+                           @bind="ProductForm.name"
+                           maxlength="100" />
+
+                    @if (!string.IsNullOrWhiteSpace(Message))
+                    {
+                        <div class="pro-alert-curtain">
+
+                            <div class="restore-text">@Message</div>
+
+                            @if (ShowActivatePrompt)
+                            {
+                                <button type="button"
+                                        @onclick="ActivateExisting"
+                                        class="pro-btn-link">
+                                    تنشيط المنتج الآن
+                                </button>
+                            }
+
+                        </div>
+                    }
+                </div>
+
+                <div class="pro-field">
+                    <label class="pro-label">سعر البيع</label>
+
+                    <input type="number"
+                           step="0.01"
+                           class="pro-input"
+                           @bind-value="ProductForm.sale_price"
+                           @bind-value:event="oninput" />
+                </div>
+
+                @if (ShowEditDialog)
+                {
+                    <div class="pro-status-container">
+
+                        <label class="pro-label">حالة المنتج</label>
+
+                        <div class="pro-status-buttons">
+
+                            <button type="button"
+                                    class="pro-status-btn @(ProductForm.is_active ? "pro-active-selected" : "")"
+                                    @onclick="() => ProductForm.is_active = true">
+                                نشط
+                            </button>
+
+                            <button type="button"
+                                    class="pro-status-btn @(!ProductForm.is_active ? "pro-inactive-selected" : "")"
+                                    @onclick="() => ProductForm.is_active = false">
+                                معطل
+                            </button>
+
+                        </div>
+                    </div>
+                }
+
+                <div class="pro-dialog-actions">
+                    <button type="button" class="pro-save" @onclick="SaveProduct">حفظ</button>
+                    <button type="button" class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box pro-delete-dialog-box">
+
+            <div class="pro-dialog-top-image pro-delete-top-image">
+                <img src="images/Background.png" />
+            </div>
+
+            <div class="pro-dialog-body pro-delete-dialog-body">
+
+                <div class="pro-delete-icon-wrap">
+                    <div class="pro-delete-icon">!</div>
+                </div>
+
+                <h3 class="pro-delete-title">تأكيد الحذف <span>(إلغاء التنشيط)</span></h3>
+
+                <p class="pro-delete-text text-center-delete">
+                    هل تريد إلغاء تنشيط المنتج "@ProductForm.name"؟
+                </p>
+
+                <div class="pro-dialog-actions">
+                    <button type="button" class="pro-delete-confirm" @onclick="ConfirmDelete">حذف</button>
+                    <button type="button" class="pro-cancel" @onclick="CloseDialogs">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (IsExporting)
+{
+    <div class="excel-loading-overlay">
+        <div class="excel-loading-box">
+            جاري الأرشفة...
+        </div>
+    </div>
+}
+
+@code {
+
+    List<SultanCups.Models.Product>? ProductList;
+
+    bool ShowAddDialog = false;
+    bool ShowEditDialog = false;
+    bool ShowDeleteDialog = false;
+    bool ShowInactive = false;
+
+    bool IsExporting = false;
+
+    string Message = string.Empty;
+    string ToastMessage = string.Empty;
+    string ToastClass = "success";
+
+    string StatusFilter = "all";
+
+    bool ShowActivatePrompt = false;
+    SultanCups.Models.Product? DuplicateProduct;
+
+    SultanCups.Models.Product ProductForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProductList = await InventoryService.GetAllProducts();
+    }
+
+    void OpenAddDialog()
+    {
+        CloseDialogs();
+        Message = string.Empty;
+
+        ProductForm = new SultanCups.Models.Product
+        {
+            is_active = true
+        };
+
+        ShowAddDialog = true;
+    }
+
+    void OpenEditDialog(SultanCups.Models.Product p)
+    {
+        CloseDialogs();
+        Message = string.Empty;
+
+        ProductForm = new SultanCups.Models.Product
+        {
+            product_id = p.product_id,
+            name = p.name,
+            sale_price = p.sale_price,
+            is_active = p.is_active
+        };
+
+        ShowEditDialog = true;
+    }
+
+    void OpenDeleteDialog(SultanCups.Models.Product p)
+    {
+        CloseDialogs();
+        Message = string.Empty;
+
+        ProductForm = new SultanCups.Models.Product
+        {
+            product_id = p.product_id,
+            name = p.name
+        };
+
+        ShowDeleteDialog = true;
+    }
+
+    async Task SaveProduct()
+    {
+        Message = string.Empty;
+        ShowActivatePrompt = false;
+
+        var name = ProductForm.name?.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Message = "اسم المنتج مطلوب";
+            return;
+        }
+
+        var allProducts = await InventoryService.GetAllProducts();
+
+        DuplicateProduct = allProducts.FirstOrDefault(p =>
+            p.name?.Trim().ToLower() == name.ToLower());
+
+        if (ShowAddDialog)
+        {
+            if (DuplicateProduct != null)
+            {
+                if (DuplicateProduct.is_active)
+                {
+                    Message = "هذا المنتج موجود مسبقاً وهو نشط.";
+                    return;
+                }
+                else
+                {
+                    Message = $"المنتج '{name}' موجود مسبقاً في الأرشيف (غير نشط).";
+                    ShowActivatePrompt = true;
+                    return;
+                }
+            }
+
+            ProductForm.is_active = true;
+            await InventoryService.AddProduct(ProductForm);
+        }
+        else
+        {
+            if (DuplicateProduct != null &&
+                DuplicateProduct.product_id != ProductForm.product_id)
+            {
+                if (DuplicateProduct.is_active)
+                {
+                    Message = "هذا المنتج موجود نشطاً بالفعل؛ لا يمكنك تكرار نفس الاسم.";
+                }
+                else
+                {
+                    Message = "هذا الاسم موجود مسبقاً في الأرشيف (غير نشط)؛ لا يمكنك استخدامه هنا.";
+                }
+
+                return;
+            }
+
+            await InventoryService.UpdateProduct(ProductForm);
+        }
+
+        await RefreshData();
+
+        ShowToast(ShowAddDialog ? "تمت الإضافة بنجاح" : "تم التعديل بنجاح");
+
+        CloseDialogs();
+    }
+
+    async Task ActivateExisting()
+    {
+        if (DuplicateProduct != null)
+        {
+            DuplicateProduct.is_active = true;
+
+            await InventoryService.UpdateProduct(DuplicateProduct);
+            await RefreshData();
+
+            ShowToast("تم إعادة تنشيط المنتج بنجاح");
+
+            CloseDialogs();
+        }
+    }
+
+    async Task ExportToExcel()
+    {
+        if (IsExporting) return;
+
+        IsExporting = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(300);
+
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("المنتجات");
+
+            ws.Cell(1, 1).Value = "رقم";
+            ws.Cell(1, 2).Value = "اسم المنتج";
+            ws.Cell(1, 3).Value = "سعر البيع";
+            ws.Cell(1, 4).Value = "الحالة";
+
+            int row = 2;
+
+            foreach (var p in ProductList ?? new())
+            {
+                ws.Cell(row, 1).Value = p.product_id;
+                ws.Cell(row, 2).Value = p.name;
+                ws.Cell(row, 3).Value = p.sale_price;
+                ws.Cell(row, 4).Value = p.is_active ? "نشط" : "معطل";
+                row++;
+            }
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+            ws.Columns().AdjustToContents();
+            ws.RightToLeft = true;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await JS.InvokeVoidAsync(
+                "downloadFile",
+                $"Products_{DateTime.Now:yyyyMMddHHmmss}.xlsx",
+                Convert.ToBase64String(stream.ToArray())
+            );
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void ShowToast(string msg, string type = "success")
+    {
+        ToastMessage = msg;
+        ToastClass = type;
+
+        StateHasChanged();
+
+        Task.Delay(3000).ContinueWith(_ =>
+        {
+            ToastMessage = string.Empty;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    void CloseDialogs()
+    {
+        ShowAddDialog = false;
+        ShowEditDialog = false;
+        ShowDeleteDialog = false;
+
+        Message = string.Empty;
+        ProductForm = new SultanCups.Models.Product();
+    }
+
+    IEnumerable<SultanCups.Models.Product> FilteredProducts =>
+      (ProductList ?? new())
+      .Where(p =>
+          StatusFilter == "all" ||
+          (StatusFilter == "active" && p.is_active) ||
+          (StatusFilter == "inactive" && !p.is_active));
+
+    async Task RefreshData()
+    {
+        ProductList = await InventoryService.GetAllProducts();
+        StateHasChanged();
+    }
+
+    async Task ConfirmDelete()
+    {
+        await InventoryService.DeleteProduct(ProductForm.product_id);
+
+        await RefreshData();
+
+        ShowToast("تم إلغاء تنشيط المنتج بنجاح", "error");
+
+        CloseDialogs();
+    }
+
+}

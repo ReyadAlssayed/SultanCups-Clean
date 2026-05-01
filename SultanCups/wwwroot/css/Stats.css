@@ -1,0 +1,273 @@
+﻿/* الحاوية الأساسية */
+.stats-container {
+    padding: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+    min-height: 90vh;
+    direction: rtl;
+    background: #f8fafc;
+}
+
+/* طبقة الخصوصية */
+.privacy-blanket {
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    background: linear-gradient(180deg, #ffffff 60%, #f1f5f9);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 100px;
+}
+
+/* الكرت */
+.upper-shield-card {
+    background: #ffffff;
+    padding: 40px 70px;
+    border-radius: 28px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+    animation: slideDownFade 0.6s ease-out;
+}
+
+.shield-icon {
+    font-size: 48px;
+    color: #64748b;
+    margin-bottom: 15px;
+}
+
+.upper-shield-card h3 {
+    font-weight: 900;
+    color: #0f172a;
+    font-size: 24px;
+}
+
+/* زر */
+.reveal-btn-main {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: white;
+    border: none;
+    padding: 14px 42px;
+    border-radius: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 25px auto 0;
+}
+
+    .reveal-btn-main:hover {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+    }
+
+/* الأنيميشن */
+.hide-content {
+    opacity: 0;
+    transform: translateY(40px) scale(0.98);
+}
+
+.show-content-smooth {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* الرأس */
+.stats-header {
+    margin-bottom: 45px;
+    border-right: 5px solid #3b82f6;
+    padding-right: 18px;
+}
+
+    .stats-header h1 {
+        font-size: 34px;
+        font-weight: 900;
+        color: #0f172a;
+    }
+
+    .stats-header p {
+        color: #64748b;
+        margin-top: 6px;
+    }
+
+/* الكروت */
+.summary-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 25px;
+    margin-bottom: 50px;
+}
+
+.summary-card {
+    padding: 38px;
+    border-radius: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 160px;
+    transition: all 0.3s ease;
+}
+
+    .summary-card:hover {
+        transform: translateY(-4px);
+    }
+
+    /* كرت الأرباح */
+    .summary-card.net-profit {
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        color: white;
+        box-shadow: 0 15px 35px rgba(37, 99, 235, 0.25);
+    }
+
+    /* كرت الخزنة */
+    .summary-card.cash-box {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+/* النص */
+.summary-info {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.value-large {
+    font-size: 44px;
+    font-weight: 900;
+}
+
+.label {
+    font-size: 17px;
+    font-weight: 700;
+    opacity: 0.85;
+}
+
+/* الأيقونة */
+.summary-icon {
+    font-size: 60px;
+    opacity: 0.15;
+}
+
+/* الشبكة */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px;
+}
+
+/* الكروت الداخلية */
+.stats-section {
+    background: white;
+    border-radius: 22px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+    transition: all 0.25s ease;
+}
+
+    .stats-section:hover {
+        transform: translateY(-3px);
+    }
+
+/* الرأس */
+.section-head {
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 22px 22px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+    .section-head h3 {
+        font-weight: 800;
+        color: #1e293b;
+    }
+
+    .section-head i {
+        color: #64748b;
+    }
+
+/* العناصر */
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.2s;
+}
+
+    .stat-item:hover {
+        background: #f8fafc;
+    }
+
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+
+    .stat-item span {
+        color: #475569;
+        font-weight: 600;
+    }
+
+    .stat-item strong {
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+/* الأحمر */
+.text-danger {
+    color: #ef4444 !important;
+}
+
+/* زر أعلى يسار - مستطيل */
+.hide-btn-top {
+    position: absolute;
+    top: 10px;
+    left: 20px; /* 👈 بدل right */
+
+    z-index: 50;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 10px; /* مستطيل ناعم */
+
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+}
+
+    /* Hover */
+    .hide-btn-top:hover {
+        transform: translateY(-2px) scale(1.05);
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+    }
+
+/* أنيميشن */
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
