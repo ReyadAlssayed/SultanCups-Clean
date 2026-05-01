@@ -1,4 +1,5 @@
 ﻿@page "/Raw"
+@using SultanCups.Models
 @using SultanCups.Services
 @layout Layout.MainLayout
 @inject SultanCups.Services.InventoryService InventoryService
@@ -285,7 +286,6 @@
 }
 
 
-
 @code {
 
 
@@ -298,6 +298,7 @@
     string UomError = "";
     string CostError = "";
     string NoteError = "";
+
 
     bool IsExporting = false;
 
@@ -558,6 +559,8 @@ List<SultanCups.Models.RawMaterial>? RawMaterial;
             await InvokeAsync(StateHasChanged);
         }
     }
+
+  
 
     async Task ConfirmDelete()
     {

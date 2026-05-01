@@ -102,7 +102,7 @@
     padding: 20px;
     display: grid;
     gap: 12px;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.05);
     transition: all 0.25s ease;
     position: relative;
     overflow: hidden;
@@ -121,8 +121,8 @@
     }
     /* hover ناعم جداً */
     .summary-box1:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 25px rgba(37, 99, 235, 0.12);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.08);
     }
 
 .sum-line1 {
@@ -319,6 +319,110 @@
     .btn-delete:hover {
         background: #fecaca;
     }
+
+
+.notes-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.payment-header1 {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.payment-row1 {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+    .payment-row1 .small {
+        height: 36px;
+        font-size: 13px;
+    }
+
+    .payment-row1 select {
+        width: 35%;
+    }
+
+    .payment-row1 input {
+        width: 45%;
+        text-align: center;
+    }
+
+    .payment-row1 button {
+        width: 20%;
+    }
+
+
+.pay-input1 {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    font-weight: 600;
+    color: #111827; /* 🔥 هذا حل مشكلة "نقدي" */
+}
+
+.pay-delete1 {
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+    .pay-delete1:hover {
+        background: #fecaca;
+    }
+
+
+
+.pay-actions1 {
+    display: flex;
+    gap: 12px;
+    padding: 15px 20px;
+}
+
+.pay-save1 {
+    flex: 1;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pay-cancel1 {
+    flex: 1;
+    background: #64748b;
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pay-save1:hover {
+    background: #1d4ed8;
+}
+
+.pay-cancel1:hover {
+    background: #475569;
+}
+
 
 @keyframes highlightFade {
     0% {
