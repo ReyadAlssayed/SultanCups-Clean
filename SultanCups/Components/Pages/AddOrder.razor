@@ -368,7 +368,7 @@
 
             <div class="pay-actions1">
                 <button class="pay-save1" @onclick="ClosePaymentDialog">تم</button>
-                <button class="pay-cancel1" @onclick="ClosePaymentDialog">إلغاء</button>
+                <button class="pay-cancel1" @onclick="CancelPaymentDialog">إلغاء</button>
             </div>
 
         </div>
@@ -444,6 +444,11 @@
         Form.Items.Remove(item);
     }
 
+    void CancelPaymentDialog()
+    {
+        ShowPaymentDialog = false;
+    }
+
     void OnMarketerChanged(ChangeEventArgs e)
     {
         int id = int.Parse(e.Value?.ToString() ?? "0");
@@ -460,10 +465,14 @@
 
     void OpenPaymentDialog()
     {
-        Payments = new List<PaymentInput>
-    {
-        new PaymentInput()
-    };
+        // ✔ لو فيه بيانات مسبقاً لا تعيد التهيئة
+        if (Payments == null || Payments.Count == 0)
+        {
+            Payments = new List<PaymentInput>
+        {
+            new PaymentInput()
+        };
+        }
 
         ShowPaymentDialog = true;
     }
@@ -660,15 +669,32 @@
 
             Form.order_date = DateTime.UtcNow;
 
+            var finalPayments = Payments;
+
+            if (finalPayments == null || !finalPayments.Any())
+            {
+                finalPayments = new List<PaymentInput>
+    {
+        new PaymentInput
+        {
+            method = Form.payment_method,
+            amount = Form.paid_amount
+        }
+    };
+            }
+
             var result = await FinanceService.AddOrder(
                 Form,
                 Form.Items,
+                finalPayments,
                 CurrentAdminId
             );
 
             if (result.success)
             {
                 ToastService.ShowToast("تم الحفظ ✔", "success");
+
+                Payments = new List<PaymentInput>(); // 🔥 هنا
                 Nav.NavigateTo($"/orders?new={Form.order_id}");
 
                 Form = new Order

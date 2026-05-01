@@ -14,18 +14,19 @@ namespace SultanCups.Services
         }
 
         private void AddFinancialEvent(
-    string type,
-    string direction,
-    decimal amount,
-    int cashBoxId,
-    int adminId,
-    int refId,
-    string refTable,
-    int? personId,
-    string? personName,
-    string notes = "",
-    int? itemId = null,
-    string? itemName = null)
+     string type,
+     string direction,
+     decimal amount,
+     int cashBoxId,
+     int adminId,
+     int refId,
+     string refTable,
+     int? personId,
+     string? personName,
+     string? paymentMethod = null, // 🔥 جديد
+     string notes = "",
+     int? itemId = null,
+     string? itemName = null)
         {
             var adminName = _context.admins
                 .Where(x => x.admin_id == adminId)
@@ -38,6 +39,8 @@ namespace SultanCups.Services
                 direction = direction,
                 amount = amount,
                 cash_box_id = cashBoxId,
+
+                payment_method = paymentMethod, // 🔥 مهم
 
                 performed_by = adminId,
                 admin_name_snapshot = adminName,
@@ -58,9 +61,10 @@ namespace SultanCups.Services
 
         // ✅ إنشاء فاتورة
         public async Task<(bool success, string message)> AddOrder(
-      Order order,
-      List<OrderItem> items,
-      int adminId)
+       Order order,
+       List<OrderItem> items,
+       List<PaymentInput> payments, // 🔥 جديد
+       int adminId)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -136,22 +140,28 @@ namespace SultanCups.Services
                 // =========================================
                 // 🔥 تسجيل الحركة المالية
                 // =========================================
-                if (order.payment_method != "debt" && order.paid_amount > 0)
+                if (payments != null && payments.Any())
                 {
-                    AddFinancialEvent(
-                        "فاتورة بيع جديدة",
-                        "IN",
-                        order.paid_amount,
-                        order.cash_box_id,
-                        adminId,
-                        order.order_id,
-                        "orders",
-                        order.person_id,
-                        personName,
-                        "تحصيل فاتورة",
-                        firstProduct?.product_id,
-                        firstProduct != null ? $"{firstProduct.name} (منتج)" : null
-                    );
+                    foreach (var p in payments)
+                    {
+                        if (p.amount <= 0) continue;
+
+                        AddFinancialEvent(
+                            "تحصيل فاتورة",
+                            "IN",
+                            p.amount,
+                            order.cash_box_id,
+                            adminId,
+                            order.order_id,
+                            "orders",
+                            order.person_id,
+                            personName,
+                            p.method,
+                            "دفعة فاتورة",
+                            firstProduct?.product_id,
+                            firstProduct != null ? $"{firstProduct.name} (منتج)" : null
+                        );
+                    }
                 }
 
                 await _context.SaveChangesAsync();

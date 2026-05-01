@@ -355,6 +355,15 @@
                     </div>
 
                     <div class="row">
+                        <span>طريقة الدفع</span>
+                        <span>
+                            @(string.IsNullOrWhiteSpace(SelectedItem.payment_method)
+                                ? "-"
+                                : SelectedItem.payment_method)
+                        </span>
+                    </div>
+
+                    <div class="row">
                         <span>الملاحظات</span>
                         <span>
                             @(string.IsNullOrWhiteSpace(SelectedItem.notes)
