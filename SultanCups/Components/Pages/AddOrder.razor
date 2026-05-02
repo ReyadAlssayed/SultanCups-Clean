@@ -231,8 +231,10 @@
 
                 <input type="number"
                        class="pro-input @(PaidError == "" ? "" : "is-invalid")"
-                       @bind-value="Form.paid_amount"
-                       @bind-value:event="oninput" />
+                <input class="pro-input"
+                       value="@PaymentsTotal"
+                       readonly />
+                     
 
                 @if (PaidError != "")
                 {
@@ -374,6 +376,49 @@
         </div>
     </div>
 }
+@if (ShowPaymentDiffDialog)
+{
+    <div class="pro-dialog-overlay">
+        <div class="pro-dialog-box">
+
+            <div class="pro-dialog-body">
+
+                <h3 class="diff-title">تأكيد تعديل الدفعات</h3>
+
+                <div class="diff-row">
+                    <span>المدفوع السابق</span>
+                    <b>@OldPaid.ToString("0.00") د.ل</b>
+                </div>
+
+                <div class="diff-row">
+                    <span>المدفوع الجديد</span>
+                    <b>@NewPaid.ToString("0.00") د.ل</b>
+                </div>
+
+                <div class="diff-row">
+                    <span>الفرق</span>
+
+                    <b class="@(DiffPaid > 0 ? "diff-in" : "diff-out")">
+                        @Math.Abs(DiffPaid).ToString("0.00") د.ل
+                    </b>
+                </div>
+
+                <p class="diff-note">
+                    @(DiffPaid > 0
+                                    ? "سيتم تسجيل زيادة في التحصيل"
+                                    : "سيتم تسجيل استرجاع من الفاتورة")
+                </p>
+
+                <div class="pro-dialog-actions">
+                    <button class="pro-save" @onclick="ConfirmPaymentEdit">متابعة</button>
+                    <button class="pro-cancel" @onclick="() => ShowPaymentDiffDialog = false">إلغاء</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
 
 
 @code {
@@ -396,6 +441,11 @@
 
     
     bool ShowPaymentDialog = false;
+    bool ShowPaymentDiffDialog;
+
+    decimal OldPaid;
+    decimal NewPaid;
+    decimal DiffPaid;
 
     List<PaymentInput> Payments = new();
 
@@ -479,13 +529,6 @@
 
     void ClosePaymentDialog()
     {
-        // 🔴 منع التكرار
-        if (HasDuplicateMethods())
-        {
-            ToastService.ShowToast("لا يمكن تكرار نفس نوع الدفع", "error");
-            return;
-        }
-
         if (Payments.All(p => p.amount == 0))
         {
             ToastService.ShowToast("لا يمكن أن يكون المبلغ المدفوع = 0", "error");
@@ -498,25 +541,19 @@
             return;
         }
 
-        // 🔴 منع القيم السالبة
         if (Payments.Any(p => p.amount < 0))
         {
             ToastService.ShowToast("لا يمكن إدخال مبلغ سالب", "error");
             return;
         }
 
-        // 🔴 حساب المجموع
-        var total = Payments.Sum(p => p.amount);
-
-        // 🔴 منع تجاوز الإجمالي بعد الخصم
         if (IsOverLimit())
         {
-            ToastService.ShowToast("مجموع الدفعات أكبر من الإجمالي بعد الخصم", "error");
+            ToastService.ShowToast("مجموع الدفعات أكبر من الإجمالي", "error");
             return;
         }
 
-        // 🟢 ربط
-        Form.paid_amount = total;
+        Form.paid_amount = Payments.Sum(p => p.amount);
 
         ShowPaymentDialog = false;
     }
@@ -569,7 +606,35 @@
 
         if (order == null) return;
 
-        Form = order;
+        Form = new Order
+        {
+            order_id = order.order_id,
+            person_id = order.person_id,
+            person_type = order.person_type,
+            discount_total = order.discount_total,
+            paid_amount = order.paid_amount,
+            cash_box_id = order.cash_box_id,
+            commission_per_box = order.commission_per_box,
+            notes = order.notes,
+            order_date = order.order_date,
+            Items = order.Items.Select(i => new OrderItem
+            {
+                product_id = i.product_id,
+                quantity = i.quantity,
+                unit_price = i.unit_price
+            }).ToList()
+        };
+
+        var payments = await FinanceService.GetPaymentsByOrder(id);
+
+        Payments = payments.Select(p => new PaymentInput
+        {
+            method = p.payment_method ?? "cash",
+            amount = p.amount
+        }).ToList();
+
+        // ✅ مهم
+        OldPaid = order.paid_amount;
     }
 
     void OnProductChanged(ChangeEventArgs e, OrderItem item)
@@ -593,12 +658,6 @@
         Payments.Add(new PaymentInput());
     }
 
-    bool HasDuplicateMethods()
-    {
-        return Payments
-            .GroupBy(p => p.method)
-            .Any(g => g.Count() > 1);
-    }
 
     decimal PaymentsTotal => Payments.Sum(p => p.amount);
 
@@ -611,13 +670,11 @@
     {
         try
         {
-            // 🔥 reset errors
             PersonError = "";
             ItemsError = "";
             ProductError = "";
             QuantityError = "";
             CashBoxError = "";
-            PaidError = "";
 
             bool hasError = false;
 
@@ -651,77 +708,68 @@
                 hasError = true;
             }
 
-            var net = Form.Items.Sum(i => i.quantity * i.unit_price) - Form.discount_total;
-
-            if (Form.paid_amount < 0)
-            {
-                PaidError = "لا يمكن أن يكون المبلغ سالب";
-                hasError = true;
-            }
-
-            if (Form.paid_amount > net)
-            {
-                PaidError = "المبلغ أكبر من الإجمالي";
-                hasError = true;
-            }
-            if (Payments.Any())
-            {
-                Form.payment_method = null; // 🔥 اختياري لتنظيف
-            }
-
             if (hasError) return;
 
+            // ========================
+            // الحسابات
+            // ========================
+            var net = Form.Items.Sum(i => i.quantity * i.unit_price) - Form.discount_total;
+
+            // 🔥 أهم سطر
+            SmartSyncPayments(net);
+
+            var finalPayments = Payments ?? new List<PaymentInput>();
+            var paid = finalPayments.Sum(p => p.amount);
+
+            // ========================
+            // Diff logic
+            // ========================
+            if (Id.HasValue)
+            {
+                NewPaid = paid;
+                DiffPaid = NewPaid - OldPaid;
+
+                if (DiffPaid != 0)
+                {
+                    ShowPaymentDiffDialog = true;
+                    return;
+                }
+            }
+
+            // ========================
+            // fallback
+            // ========================
+            if (!finalPayments.Any() && paid > 0)
+            {
+                finalPayments = new List<PaymentInput>
+            {
+                new PaymentInput
+                {
+                    method = Form.payment_method,
+                    amount = paid
+                }
+            };
+            }
+
+            if (finalPayments.Any())
+            {
+                Form.payment_method = null;
+            }
+
+            Form.paid_amount = paid; // ✔ فقط هنا
             Form.order_date = DateTime.UtcNow;
 
-            var finalPayments = Payments;
-
-            if (finalPayments == null || !finalPayments.Any())
-            {
-                if (Form.paid_amount > 0) // 🔥 الشرط المهم
-                {
-                    finalPayments = new List<PaymentInput>
-        {
-            new PaymentInput
-            {
-                method = Form.payment_method,
-                amount = Form.paid_amount
-            }
-        };
-                }
-                else
-                {
-                    finalPayments = new List<PaymentInput>(); // 🔥 لا ترسل شيء
-                }
-            }
-
-            var result = await FinanceService.AddOrder(
-                Form,
-                Form.Items,
-                finalPayments,
-                CurrentAdminId
-            );
+            var result = Id.HasValue
+                ? await FinanceService.UpdateOrder(Form, Form.Items, finalPayments, CurrentAdminId)
+                : await FinanceService.AddOrder(Form, Form.Items, finalPayments, CurrentAdminId);
 
             if (result.success)
             {
                 ToastService.ShowToast("تم الحفظ ✔", "success");
 
-                Payments = new List<PaymentInput>(); // 🔥 هنا
-                Nav.NavigateTo($"/orders?new={Form.order_id}");
+                Payments = new List<PaymentInput>();
 
-                Form = new Order
-                {
-                    order_date = DateTime.UtcNow,
-                    person_type = "marketer",
-                    Items = new List<OrderItem>
-                {
-                    new OrderItem
-                    {
-                        product_id = 0,
-                        quantity = 1,
-                        unit_price = 0
-                    }
-                }
-                };
+                Nav.NavigateTo($"/orders?new={Form.order_id}");
             }
             else
             {
@@ -735,5 +783,55 @@
         }
     }
 
+    async Task ConfirmPaymentEdit()
+    {
+        ShowPaymentDiffDialog = false;
+
+        var finalPayments = Payments;
+
+        Form.paid_amount = finalPayments?.Sum(p => p.amount) ?? 0;
+
+        var result = await FinanceService.UpdateOrder(
+            Form,
+            Form.Items,
+            finalPayments,
+            CurrentAdminId
+        );
+
+        if (result.success)
+        {
+            ToastService.ShowToast("تم التعديل ✔", "success");
+            Nav.NavigateTo("/orders");
+        }
+        else
+        {
+            ToastService.ShowToast(result.message, "error");
+        }
+    }
+
+    void SmartSyncPayments(decimal net)
+    {
+        var current = Payments.Sum(p => p.amount);
+        var diff = net - current;
+
+        if (diff == 0) return;
+
+        if (!Payments.Any())
+        {
+            Payments.Add(new PaymentInput
+            {
+                method = "cash",
+                amount = net
+            });
+            return;
+        }
+
+        var last = Payments.Last();
+
+        last.amount += diff;
+
+        if (last.amount < 0)
+            last.amount = 0;
+    }
     string Fmt(decimal v) => $"{v:0.00} د.ل";
 }

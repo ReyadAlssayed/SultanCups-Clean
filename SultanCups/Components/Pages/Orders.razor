@@ -84,9 +84,10 @@
         <td>
             <button class="btn-info" @onclick="() => OpenDetails(o)">تفاصيل</button>
 
-                                    <button class="btn-edit" disabled>
-    تعديل
-</button>
+                                    <button class="btn-edit"
+                                            @onclick='() => Nav.NavigateTo($"/orders/add?id={o.order_id}")'>
+                                        تعديل
+                                    </button>
 
             <button class="btn-delete">تعطيل</button>
                                     <button class="btn-print">طباعة</button>
