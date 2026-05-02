@@ -521,7 +521,42 @@ namespace SultanCups.Services
             );
         }
 
+        public async Task<List<DebtView>> GetDebts()
+        {
+            var query =
+                from o in _context.orders
 
+                join c in _context.customers on o.person_id equals c.customer_id into cg
+                from c in cg.DefaultIfEmpty()
+
+                join m in _context.marketers on o.person_id equals m.marketer_id into mg
+                from m in mg.DefaultIfEmpty()
+
+                let total = _context.order_items
+                    .Where(i => i.order_id == o.order_id)
+                    .Sum(i => (decimal?)i.quantity * i.unit_price) ?? 0
+
+                let net = total - o.discount_total
+
+                let remaining = net - o.paid_amount
+
+                where remaining > 0
+
+                select new DebtView
+                {
+                    order_id = o.order_id,
+                    person_name = o.person_type == "customer" ? c.name : m.name,
+                    order_date = o.order_date,
+                    net_total = net,
+                    paid_amount = o.paid_amount,
+                    remaining = remaining,
+                    status = o.paid_amount == 0 ? "غير مدفوع" : "جزئي"
+                };
+
+            return await query
+                .OrderByDescending(x => x.order_date)
+                .ToListAsync();
+        }
 
     }
 }
