@@ -229,11 +229,9 @@
 
                 <label>المبلغ المدفوع</label>
 
-                <input type="number"
-                       class="pro-input @(PaidError == "" ? "" : "is-invalid")"
-                <input class="pro-input"
-                       value="@PaymentsTotal"
-                       readonly />
+<input class="pro-input"
+       value="@PaymentsTotal"
+       readonly />
                      
 
                 @if (PaidError != "")
