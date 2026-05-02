@@ -359,7 +359,7 @@
                         <span>
                             @(string.IsNullOrWhiteSpace(SelectedItem.payment_method)
                                 ? "-"
-                                : SelectedItem.payment_method)
+                                : GetPaymentName(SelectedItem.payment_method))
                         </span>
                     </div>
 
@@ -468,6 +468,18 @@
         return null;
     }
 
+    string GetPaymentName(string method)
+    {
+        return method switch
+        {
+            "cash" => "نقدي",
+            "transfer" => "تحويل",
+            "card" => "بطاقة",
+            "check" => "شيك",
+            _ => method
+        };
+    }
+
     async Task ExportToExcel()
     {
         if (IsExporting)
@@ -493,7 +505,8 @@
             ws.Cell(1, 8).Value = "العنصر";
             ws.Cell(1, 9).Value = "التاريخ";
             ws.Cell(1, 10).Value = "التفاصيل";
-            ws.Cell(1, 11).Value = "المرجع";
+            ws.Cell(1, 11).Value = "طريقة الدفع"; // 🔥 جديد
+            ws.Cell(1, 12).Value = "المرجع";
 
             int row = 2;
 
@@ -543,7 +556,12 @@
                 ws.Cell(row, 8).Value = itemExcelName;
                 ws.Cell(row, 9).Value = item.event_date.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
                 ws.Cell(row, 10).Value = item.notes;
-                ws.Cell(row, 11).Value = $"{item.ref_table} - {item.ref_id}";
+                ws.Cell(row, 11).Value =
+    string.IsNullOrWhiteSpace(item.payment_method)
+        ? "-"
+        : GetPaymentName(item.payment_method);
+
+                ws.Cell(row, 12).Value = $"{item.ref_table} - {item.ref_id}";
                 row++;
             }
 

@@ -84,10 +84,9 @@
         <td>
             <button class="btn-info" @onclick="() => OpenDetails(o)">تفاصيل</button>
 
-                                    <button class="btn-edit"
-                                            @onclick='() => Nav.NavigateTo($"/orders/add?id={o.order_id}")'>
-                                        تعديل
-                                    </button>
+                                    <button class="btn-edit" disabled>
+    تعديل
+</button>
 
             <button class="btn-delete">تعطيل</button>
                                     <button class="btn-print">طباعة</button>
@@ -127,11 +126,6 @@
                     </div>
 
                     <div class="row">
-                        <span>عدد الأصناف</span>
-                        <span>@SelectedOrder.items_count</span>
-                    </div>
-
-                    <div class="row">
                         <span>الإجمالي</span>
                         <span>@Fmt(SelectedOrder.total)</span>
                     </div>
@@ -142,14 +136,50 @@
                     </div>
 
                     <div class="row">
-                        <span>الصافي</span>
+                        <span>الإجمالي بعد الخصم</span>
                         <span>@Fmt(SelectedOrder.net_total)</span>
                     </div>
+
+                    <div class="row">
+    <span>المدفوع</span>
+    <span class="paid-green">
+        @Fmt(SelectedOrder.paid_amount)
+    </span>
+</div>
+
+<div class="row">
+    <span>المتبقي</span>
+    <span class="remain-red">
+        @Fmt(SelectedOrder.net_total - SelectedOrder.paid_amount)
+    </span>
+</div>
+
+<div class="row">
+   <span class="status-text">الحالة</span>
+   <span class="@GetStatusClass(SelectedOrder)">
+    @(SelectedOrder.paid_amount == 0
+        ? "غير مدفوع"
+        : SelectedOrder.paid_amount < SelectedOrder.net_total
+            ? "جزئي"
+            : "خالص")
+</span>
+</div>
 
                     <div class="row">
                         <span>العمولة</span>
                         <span>@Fmt(SelectedOrder.commission_total)</span>
                     </div>
+
+                    <div class="row">
+    <span>طريقة الدفع</span>
+    <span>
+    @(PaymentMethods.Any()
+        ? (PaymentMethods.Count == 1
+            ? PaymentMethods.First()
+            : string.Join(" | ", PaymentMethods))
+        : "-")
+</span>
+</div>
 
                     <div class="row">
                         <span>التاريخ</span>
@@ -158,37 +188,7 @@
 
                 </div>
 
-                @if (SelectedItems.Any())
-                {
-                    <div style="margin-top:15px">
-
-                        <h4>الأصناف</h4>
-
-                        <table class="pro-table">
-                            <thead>
-                                <tr>
-                                    <th>المنتج</th>
-                                    <th>الكمية</th>
-                                    <th>السعر</th>
-                                    <th>الإجمالي</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                @foreach (var item in SelectedItems)
-                                {
-                                    <tr>
-                                        <td>@item.product_id</td>
-                                        <td>@item.quantity</td>
-                                        <td>@Fmt(item.unit_price)</td>
-                                        <td>@Fmt(item.total)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-
-                    </div>
-                }
+                
 
                 <button class="btn-cancel" @onclick="CloseDetails">
                     إغلاق
@@ -218,6 +218,7 @@
     bool ShowDetails = false;
 
     List<OrderItem> SelectedItems = new();
+    List<string> PaymentMethods = new();
    
     protected override async Task OnInitializedAsync()
     {
@@ -231,6 +232,18 @@
             _ = ClearHighlight();
         }
     }
+
+    string GetPaymentName(string method)
+{
+    return method switch
+    {
+        "cash" => "نقدي",
+        "transfer" => "تحويل",
+        "card" => "بطاقة",
+        "check" => "شيك",
+        _ => method
+    };
+}
 
     async Task ClearHighlight()
     {
@@ -247,12 +260,29 @@ async Task OpenDetails(OrderView o)
     SelectedOrder = o;
     SelectedItems = order.Items;
 
+    // 🔥 جلب طرق الدفع
+    var payments = await FinanceService.GetPaymentsByOrder(o.order_id);
+    PaymentMethods = payments
+    .Where(p => !string.IsNullOrWhiteSpace(p.payment_method))
+    .Select(p => GetPaymentName(p.payment_method!))
+    .Where(x => x != "-" && !string.IsNullOrWhiteSpace(x))
+    .Distinct()
+    .ToList();
+
     ShowDetails = true;
 }
 
-    void CloseDetails()
+string GetStatusClass(OrderView o)
+{
+    if (o.paid_amount == 0) return "status-red";
+    if (o.paid_amount < o.net_total) return "status-orange";
+    return "status-green";
+}
+
+void CloseDetails()
 {
     ShowDetails = false;
     SelectedOrder = null;
+    PaymentMethods.Clear(); // 🔥 مهم
 }
 }

@@ -147,7 +147,7 @@ namespace SultanCups.Services
                         if (p.amount <= 0) continue;
 
                         AddFinancialEvent(
-                            "تحصيل فاتورة",
+                            "فاتورة بيع جديدة",
                             "IN",
                             p.amount,
                             order.cash_box_id,
@@ -239,6 +239,20 @@ namespace SultanCups.Services
             return await _context.orders
                 .Include(o => o.Items)
                 .FirstOrDefaultAsync(o => o.order_id == id);
+        }
+
+
+        //جلب دفعات الفاتورة
+        public async Task<List<FinancialEvent>> GetPaymentsByOrder(int orderId)
+        {
+            return await _context.financial_events
+                .Where(x =>
+                    x.ref_table == "orders" &&
+                    x.ref_id == orderId &&
+                    x.direction == "IN" &&
+                    x.payment_method != null)
+                .AsNoTracking()
+                .ToListAsync();
         }
 
     }

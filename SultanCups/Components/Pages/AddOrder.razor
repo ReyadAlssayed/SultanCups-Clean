@@ -488,7 +488,7 @@
 
         if (Payments.All(p => p.amount == 0))
         {
-            ToastService.ShowToast("أدخل مبلغ واحد على الأقل", "error");
+            ToastService.ShowToast("لا يمكن أن يكون المبلغ المدفوع = 0", "error");
             return;
         }
 
@@ -664,6 +664,10 @@
                 PaidError = "المبلغ أكبر من الإجمالي";
                 hasError = true;
             }
+            if (Payments.Any())
+            {
+                Form.payment_method = null; // 🔥 اختياري لتنظيف
+            }
 
             if (hasError) return;
 
@@ -673,14 +677,21 @@
 
             if (finalPayments == null || !finalPayments.Any())
             {
-                finalPayments = new List<PaymentInput>
-    {
-        new PaymentInput
+                if (Form.paid_amount > 0) // 🔥 الشرط المهم
+                {
+                    finalPayments = new List<PaymentInput>
         {
-            method = Form.payment_method,
-            amount = Form.paid_amount
-        }
-    };
+            new PaymentInput
+            {
+                method = Form.payment_method,
+                amount = Form.paid_amount
+            }
+        };
+                }
+                else
+                {
+                    finalPayments = new List<PaymentInput>(); // 🔥 لا ترسل شيء
+                }
             }
 
             var result = await FinanceService.AddOrder(
